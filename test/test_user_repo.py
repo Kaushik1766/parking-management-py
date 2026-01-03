@@ -11,7 +11,14 @@ def user_repo():
     return UserRepository(db=boto3.resource("dynamodb"))
 
 
-async def test_get_by_email(user_repo: UserRepository):
-    user = await user_repo.get_by_email("kaushiksaha004@gmail.com")
-    print(user)
-    assert isinstance(user, User)
+@pytest.mark.parametrize(
+    ("email", "expected"),
+    [("kaushiksaha004@gmail.com", User), ("doesnotexist@gmail.com", Exception)],
+)
+async def test_get_by_email(user_repo: UserRepository, email: str, expected: type):
+    if expected is Exception:
+        with pytest.raises(Exception):
+            user = await user_repo.get_by_email(email)
+    else:
+        user = await user_repo.get_by_email(email)
+        assert isinstance(user, expected)

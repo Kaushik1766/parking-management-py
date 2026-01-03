@@ -1,3 +1,4 @@
+from typing import cast
 from fastapi import Depends
 from mypy_boto3_dynamodb import DynamoDBServiceResource
 
@@ -5,8 +6,6 @@ from app.constants import DB
 from app.dependencies import get_db
 from app.models.roles import Roles
 from app.models.user import User
-
-from app.db_schemas import user_schema
 
 
 class UserRepository:
@@ -30,11 +29,4 @@ class UserRepository:
 
         if user_query_res is None:
             raise Exception("User not found")
-        return User(
-            username=str(user_query_res["Username"]),
-            password=str(user_query_res["password"]),
-            email=email,
-            user_id=str(uid),
-            role=Roles(user_query_res["role"]),
-            office_id=str(user_query_res["office_id"]),
-        )
+        return User(**cast(dict, user_query_res))

@@ -1,22 +1,15 @@
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field
 
-from dataclasses import field
+from app.models.roles import Roles
+from app.utils.alias_deserializer import alias_init
 
-# from app.models.roles import Roles
 
-
+@alias_init
 @dataclass
 class User:
-    # username: str
-    # password: str
-    # email: str
-    # role: Roles
-    # office_id: str
-    user_id: str = field(metadata={"dynamodb_name": "UUID"})
-
-
-# dc = {"UUID": "adfa"}
-
-u = User(user_id="adfa")
-print(fields(u)[0])
-# print(u)
+    username: str = field(metadata={"alias": "Username"})
+    password: str = field(metadata={"alias": "PasswordHash"})
+    email: str = field(metadata={"alias": "Email"})
+    office_id: str = field(metadata={"alias": "OfficeId"})
+    user_id: str = field(metadata={"alias": "Id"})
+    role: Roles = field(default=Roles.CUSTOMER, metadata={"alias": "Role"})
