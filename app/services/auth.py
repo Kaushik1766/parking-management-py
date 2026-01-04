@@ -4,7 +4,7 @@ import jwt
 import bcrypt
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 
 from app.dto.register import RegisterDTO
 from app.models.roles import Roles
@@ -23,7 +23,7 @@ class AuthService:
         if not bcrypt.checkpw(
             req.password.encode("utf-8"), user.password.encode("utf-8")
         ):
-            raise Exception("Invalid credentials")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
 
         token = jwt.encode(
             {

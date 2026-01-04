@@ -1,7 +1,7 @@
 from asyncio import to_thread
 from typing import cast
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from mypy_boto3_dynamodb import DynamoDBServiceResource
 
 from app.constants import DB
@@ -25,7 +25,7 @@ class UserRepository:
         )
 
         if uid_lookup_res is None:
-            raise Exception("User not found")
+            raise HTTPException(status_code=409,detail="User not found")
 
         uid = uid_lookup_res.get("UUID")
         user_query_res = await to_thread(
@@ -35,7 +35,7 @@ class UserRepository:
         )
 
         if user_query_res is None:
-            raise Exception("User not found")
+            raise HTTPException(status_code=409, detail="User not found")
         return User(**cast(dict, user_query_res))
 
     async def save_user(self, user: User):
@@ -48,7 +48,7 @@ class UserRepository:
         )
 
         if email_lookup_res is not None:
-            raise Exception("User already exists")
+            raise HTTPException(status_code=409, detail="User already exists")
 
         with self.table.batch_writer() as batch:
             batch.put_item({"PK": "USER", "SK": user.email, "UUID": user.user_id})
