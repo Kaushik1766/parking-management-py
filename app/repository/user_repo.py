@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException
 from mypy_boto3_dynamodb.service_resource import DynamoDBServiceResource
 from mypy_boto3_dynamodb.type_defs import TransactWriteItemTypeDef, PutTypeDef
 
-from app.constants import DB
+from app.constants import TABLE
 from app.dependencies import get_db
 from app.errors.web_exception import WebException, DB_ERROR
 from app.models.roles import Roles
@@ -16,7 +16,7 @@ from app.models.user import User
 class UserRepository:
     def __init__(self, db: DynamoDBServiceResource = Depends(get_db)) -> None:
         self.db = db
-        self.table = db.Table(DB)
+        self.table = db.Table(TABLE)
 
     async def get_by_email(self, email: str):
         uid_lookup_res = await to_thread(
@@ -61,7 +61,7 @@ class UserRepository:
                     "SK":user.email,
                     "UUID":user.user_id,
                 },
-                "TableName":DB,
+                "TableName":TABLE,
                 "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)",
             }
         }
@@ -74,7 +74,7 @@ class UserRepository:
                     **user.model_dump(by_alias=True),
                 },
                 "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)",
-                "TableName":DB,
+                "TableName":TABLE,
             }
         }
 

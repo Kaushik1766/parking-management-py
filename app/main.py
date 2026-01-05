@@ -1,9 +1,10 @@
 from fastapi import FastAPI, HTTPException, Request
+from starlette import status
 from starlette.responses import JSONResponse
 
-from app.routers import auth
+from app.routers import auth_router, vehicle_router
 from app.dependencies import lifespan
-from app.errors.web_exception import WebException
+from app.errors.web_exception import WebException, UNEXPECTED_ERROR
 
 app = FastAPI(lifespan=lifespan)
 
@@ -11,7 +12,14 @@ app = FastAPI(lifespan=lifespan)
 def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
-        content={"message": exc.detail},
+        content={"message": exc.detail, "code": UNEXPECTED_ERROR},
+    )
+
+@app.exception_handler(Exception)
+def exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"message": "Internal Server Error", "code": UNEXPECTED_ERROR},
     )
 
 @app.exception_handler(WebException)
@@ -21,4 +29,5 @@ def http_exception_handler(request: Request, exc: WebException):
         content={"message": exc.message, "code": exc.error_code},
     )
 
-app.include_router(auth.router, prefix="/auth")
+app.include_router(auth_router.router, prefix="/auth")
+app.include_router(vehicle_router.router, prefix="/vehicles")

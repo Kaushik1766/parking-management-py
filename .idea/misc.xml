@@ -4,4 +4,10 @@
     <option name="sdkName" value="uv (parking-management-py)" />
   </component>
   <component name="ProjectRootManager" version="2" project-jdk-name="uv (parking-management-py)" project-jdk-type="Python SDK" />
+  <component name="PyrightConfiguration">
+    <option name="sdkName" value="uv (parking-management-py)" />
+  </component>
+  <component name="RuffConfiguration">
+    <option name="enabled" value="true" />
+  </component>
 </project>

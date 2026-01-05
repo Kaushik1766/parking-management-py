@@ -1,7 +1,7 @@
 import pytest
 import boto3
 
-from app.constants import DB
+from app.constants import TABLE
 from app.models.roles import Roles
 # from ..app.repository.user_repo import UserRepository
 from app.models.user import User

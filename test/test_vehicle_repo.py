@@ -4,12 +4,12 @@ import boto3
 from app.models.vehicle import Vehicle
 from typing import List
 
-from app.repository.vehicle_repo import VehicleRepo
+from app.repository.vehicle_repo import VehicleRepository
 
 
 @fixture
-def vehicle_repo()->VehicleRepo:
-    return VehicleRepo(db=boto3.resource("dynamodb"))
+def vehicle_repo()->VehicleRepository:
+    return VehicleRepository(db=boto3.resource("dynamodb"))
 
 @pytest.mark.parametrize(
     ("id", "expected_result_len"),
@@ -19,6 +19,6 @@ def vehicle_repo()->VehicleRepo:
         ("adfasdfas", 0),
     ]
 )
-async def test_get_vehicles_by_user_id(vehicle_repo: VehicleRepo, id:str, expected_result_len:int):
+async def test_get_vehicles_by_user_id(vehicle_repo: VehicleRepository, id:str, expected_result_len:int):
     vehicles = await vehicle_repo.get_vehicles_by_user_id(id)
     assert len(vehicles) == expected_result_len, isinstance(vehicles, list)

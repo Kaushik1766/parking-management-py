@@ -1,1 +1,1 @@
-DB = "parking-management"
+TABLE = "parking-management"
