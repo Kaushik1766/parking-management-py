@@ -1,10 +1,9 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 
 from pydantic import BaseModel, Field
 
 from app.models.roles import Roles
 from app.utils.alias_deserializer import alias_init
-
 
 # @alias_init
 # @dataclass
