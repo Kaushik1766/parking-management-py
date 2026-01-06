@@ -1,3 +1,4 @@
+from typing import cast
 from asyncio import to_thread
 from typing import List
 
@@ -27,7 +28,7 @@ class VehicleRepository:
         # print(vehicles)
         vehicle_res = []
         for i in vehicles:
-            vehicle_res.append(Vehicle(**i))
+            vehicle_res.append(Vehicle(**cast(dict, i)))
 
         return vehicle_res
 

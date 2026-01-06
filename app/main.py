@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request
-from starlette import status
-from starlette.responses import JSONResponse
+from fastapi import status
+from fastapi.responses import JSONResponse
 
 from app.routers import auth_router, vehicle_router
 from app.dependencies import lifespan

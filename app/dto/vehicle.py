@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 
-class VehicleDTO(BaseModel):
+class VehicleResponseDTO(BaseModel):
     number_plate: str
     vehicle_type: str
     is_parked: bool
@@ -9,3 +9,7 @@ class VehicleDTO(BaseModel):
     assigned_building_id: str
     assigned_floor_number: int
     assigned_slot_number: int
+
+class AddVehicleDTO(BaseModel):
+    number_plate: str
+    vehicle_type: str

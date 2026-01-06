@@ -15,9 +15,9 @@ def user_repo():
     repo = UserRepository(db)
     repo._created_items = created_items
     yield repo
-    #
-    # for item in created_items:
-    #     res = db.Table(DB).delete_item(Key=item)
+
+    for item in created_items:
+        res = db.Table(TABLE).delete_item(Key=item)
 
 
 @pytest.mark.parametrize(
@@ -35,7 +35,7 @@ async def test_get_by_email(user_repo: UserRepository, email: str, expected: typ
 @pytest.mark.parametrize(
     ("email", "expected"),
     [
-        ("kaushik@new.com", None),
+        ("kaushik@new.com", User),
         ("kaushik@c.com", Exception),
     ]
 )
@@ -43,7 +43,7 @@ async def test_save_user(user_repo: UserRepository, email: str, expected: type):
     id = "afdsfasd"
     if expected is Exception:
         with pytest.raises(Exception):
-            user = await user_repo.save_user(User(
+            await user_repo.save_user(User(
                 Email=email,
                 OfficeId="58f7f1a9-8a88-4075-8f13-400d8d573d1d",
                 Username="kaushik",
@@ -52,7 +52,7 @@ async def test_save_user(user_repo: UserRepository, email: str, expected: type):
                 Id=id
             ))
     else:
-        user = await user_repo.save_user(User(
+        await user_repo.save_user(User(
             Email=email,
             OfficeId="58f7f1a9-8a88-4075-8f13-400d8d573d1d",
             Username="kaushik",
@@ -60,6 +60,8 @@ async def test_save_user(user_repo: UserRepository, email: str, expected: type):
             Role=Roles.CUSTOMER,
             Id=id
         ))
+
+        user = await user_repo.get_by_email(email)
         user_repo._created_items.append({"PK":f"USER#{id}","SK":"PROFILE"})
         user_repo._created_items.append({"PK":f"USER","SK":email})
-        assert user is None
+        assert isinstance(user, expected), user.email == email
