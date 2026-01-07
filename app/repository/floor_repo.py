@@ -18,6 +18,8 @@ class FloorRepository:
 
     async def add_floor(self, building_id: str, floor_number: int) -> None:
         slot = Slot(
+            building_id=building_id,
+            floor_number=floor_number,
             SlotId=0,
             SlotType=SlotType.TWO_WHEELER,
             IsAssigned=False,
@@ -36,6 +38,7 @@ class FloorRepository:
                 )
 
         floor_info = Floor(
+            building_id=building_id,
             FloorNumber=floor_number,
             TotalSlots=len(SLOT_LAYOUT),
             AvailableSlots=len(SLOT_LAYOUT),

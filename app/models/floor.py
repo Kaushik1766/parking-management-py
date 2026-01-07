@@ -3,7 +3,8 @@ from pydantic import BaseModel
 
 
 class Floor(BaseModel):
+    building_id :str = Field(exclude=True)
     floor_number: int = Field(alias="FloorNumber")
-    total_slots: int = Field(alias="TotalSlots")
-    available_slots: int = Field(alias="AvailableSlots")
+    total_slots: int = Field(default=0, alias="TotalSlots")
+    available_slots: int = Field(default=0, alias="AvailableSlots")
     office_id: str|None = Field(default=None, alias="OfficeId")

@@ -1,3 +1,4 @@
+from app.models.roles import Roles
 import jwt
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -30,11 +31,27 @@ def get_db(req: Request) -> DynamoDBServiceResource:
 
 bearer_security = HTTPBearer(scheme_name='Bearer')
 
-def get_current_user(token: Annotated[HTTPAuthorizationCredentials, Depends(bearer_security)]):
-    try:
-        decoded_token = jwt.decode(jwt=token.credentials, verify=True, key="asdfasasdfasdf", algorithms=["HS256"])
-        return UserJWT(**decoded_token)
+# def get_user(token: Annotated[HTTPAuthorizationCredentials, Depends(bearer_security)]):
+#     try:
+#         decoded_token = jwt.decode(jwt=token.credentials, verify=True, key="asdfasasdfasdf", algorithms=["HS256"])
+#         return UserJWT(**decoded_token)
+#
+#     except Exception as exc:
+#         print(exc)
+#         raise WebException(status_code=status.HTTP_401_UNAUTHORIZED, error_code=UNAUTHORIZED_ERROR,  message="JWT is invalid or expired")
 
-    except Exception as exc:
-        print(exc)
-        raise WebException(status_code=status.HTTP_401_UNAUTHORIZED, error_code=UNAUTHORIZED_ERROR,  message="JWT is invalid or expired")
+def get_user(allowed_roles:list[Roles]):
+    def get_auth_user(token: Annotated[HTTPAuthorizationCredentials, Depends(bearer_security)]):
+        try:
+            decoded_token = jwt.decode(jwt=token.credentials, verify=True, key="asdfasasdfasdf", algorithms=["HS256"])
+            user = UserJWT(**decoded_token)
+
+            if user.role not in allowed_roles:
+                raise WebException(status_code=401, error_code=UNAUTHORIZED_ERROR, message="Unauthorized user")
+            return user
+        except WebException:
+            raise
+        except Exception as exc:
+            print(exc)
+            raise WebException(status_code=status.HTTP_401_UNAUTHORIZED, error_code=UNAUTHORIZED_ERROR,  message="JWT is invalid or expired")
+    return get_auth_user

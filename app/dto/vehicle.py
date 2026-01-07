@@ -10,6 +10,6 @@ class VehicleResponseDTO(BaseModel):
     assigned_floor_number: int
     assigned_slot_number: int
 
-class AddVehicleDTO(BaseModel):
+class AddVehicleRequestDTO(BaseModel):
     number_plate: str
     vehicle_type: str

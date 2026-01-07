@@ -2,6 +2,7 @@ DB_ERROR = 1001
 VALIDATION_ERROR = 1002
 UNEXPECTED_ERROR = 1003
 UNAUTHORIZED_ERROR = 1004
+CONFLICT_ERROR = 1005
 
 class WebException(Exception):
     def __init__(self, status_code: int, message: str, error_code: int ):

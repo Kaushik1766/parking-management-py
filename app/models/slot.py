@@ -13,6 +13,8 @@ class OccupantDetails(BaseModel):
     start_time: int = Field(alias='StartTime')
 
 class Slot(BaseModel):
+    building_id: str = Field(exclude=True)
+    floor_number: int = Field(exclude=True)
     slot_id: int = Field(alias='SlotId')
     slot_type: SlotType = Field(alias='SlotType')
     is_assigned: bool = Field(alias='IsAssigned')
