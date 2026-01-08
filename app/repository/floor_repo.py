@@ -1,12 +1,15 @@
-from app.models.slot import Slot, SlotType
-from app.models.floor import Floor
-from app.constants import SLOT_LAYOUT
-from app.constants import TABLE
-import boto3
-from app.dependencies import get_db
+from asyncio.threads import to_thread
+from typing import Annotated, cast
+
+from boto3.dynamodb.conditions import Key
 from fastapi.params import Depends
 from mypy_boto3_dynamodb.service_resource import DynamoDBServiceResource
-from typing import Annotated
+
+from app.constants import SLOT_LAYOUT
+from app.constants import TABLE
+from app.dependencies import get_db
+from app.models.floor import Floor
+from app.models.slot import Slot, SlotType
 
 class FloorRepository:
     def __init__(
@@ -66,3 +69,18 @@ class FloorRepository:
                 ":avail": len(SLOT_LAYOUT),
             }
         )
+
+    async def get_floors(self, building_id: str) -> list[Floor]:
+        floors = await to_thread(
+            lambda: self.table.query(
+                KeyConditionExpression=Key("PK").eq(f"BUILDING#{building_id}") & Key("SK").begins_with("FLOORINFO#"),
+            ).get("Items", [])
+        )
+
+        return [
+            Floor(
+                building_id=building_id,
+                **cast(dict, floor),
+            )
+            for floor in floors
+        ]

@@ -9,6 +9,7 @@ from app.constants import TABLE
 from app.errors.web_exception import WebException, DB_ERROR
 from app.models.building import Building
 from typing import cast
+from boto3.dynamodb.conditions import Key
 
 
 class BuildingRepository:
@@ -23,7 +24,7 @@ class BuildingRepository:
                     "PK": "BUILDING",
                     "SK": f"BUILDING#{building_id}"
                 },
-                ProjectionExpression="BuildingId, BuildingName, TotalFloors, AvailableSlots",
+                ProjectionExpression="BuildingId, BuildingName, TotalFloors, TotalSlots, AvailableSlots",
             ).get("Item")
         )
 
@@ -31,6 +32,16 @@ class BuildingRepository:
             raise WebException(status_code=status.HTTP_404_NOT_FOUND, message="Building not found", error_code=DB_ERROR)
 
         return Building(**cast(dict, building))
+
+    async def get_buildings(self) -> list[Building]:
+        buildings = await to_thread(
+            lambda: self.table.query(
+                KeyConditionExpression=Key("PK").eq("BUILDING") & Key("SK").begins_with("BUILDING#"),
+                ProjectionExpression="BuildingId, BuildingName, TotalFloors, TotalSlots, AvailableSlots",
+            ).get("Items", [])
+        )
+
+        return [Building(**cast(dict, b)) for b in buildings]
 
     async def add_building(self, building: Building):
         await to_thread(

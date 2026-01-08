@@ -7,3 +7,19 @@ class AddBuildingRequestDTO(BaseModel):
 
 class AddFloorRequestDTO(BaseModel):
     floor_number: int = Field(alias="floor_number")
+
+
+class BuildingResponseDTO(BaseModel):
+    building_id: str = Field(alias="buildingId")
+    name: str
+    available_slots: int = Field(alias="availableSlots")
+    total_slots: int = Field(alias="totalSlots")
+    total_floors: int = Field(alias="totalFloors")
+
+
+class FloorResponseDTO(BaseModel):
+    building_id: str = Field(alias="buildingId")
+    floor_number: int = Field(alias="floorNumber")
+    total_slots: int = Field(alias="totalSlots")
+    available_slots: int = Field(alias="availableSlots")
+    assigned_office: str | None = Field(alias="assignedOffice")
