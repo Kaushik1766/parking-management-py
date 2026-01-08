@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from app.routers import auth_router, vehicle_router, building_router, office_router, parking_router
 from app.dependencies import lifespan
 from app.errors.web_exception import WebException, UNEXPECTED_ERROR
+from botocore.exceptions import ClientError  
 
 app = FastAPI(lifespan=lifespan)
 

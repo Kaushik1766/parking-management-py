@@ -1,3 +1,4 @@
+from mypy_boto3_dynamodb.type_defs import UpdateItemInputTypeDef
 import boto3
 from typing import cast
 from asyncio.threads import to_thread
@@ -18,18 +19,45 @@ class OfficeRepository:
     ):
         self.db = db
         self.table = db.Table(TABLE)
+        self.client = db.meta.client
 
     async def add_office(self, office: Office):
-        await to_thread(
-            lambda :self.table.put_item(
-                Item={
+        put_office = {
+            "Put": {
+                "TableName": TABLE,
+                "Item": {
                     **office.model_dump(by_alias=True),
-                    "PK":"OFFICE",
-                    "SK":f"DETAILS#{office.office_id}",
+                    "PK": "OFFICE",
+                    "SK": f"DETAILS#{office.office_id}",
                 },
-                ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
+                "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)",
+            }
+        }
+
+        update_floor = {
+            "Update": {
+                "TableName": TABLE,
+                "Key": {
+                    "PK": f"BUILDING#{office.building_id}",
+                    "SK": f"FLOORINFO#{office.floor_number}",
+                },
+                "UpdateExpression": "SET OfficeId = :office_id",
+                "ConditionExpression": "attribute_exists(PK) AND attribute_exists(SK) AND attribute_not_exists(OfficeId)",
+                "ExpressionAttributeValues": {
+                    ":office_id": office.office_id,
+                },
+            }
+        }
+
+        try:
+            await to_thread(
+                lambda: self.client.transact_write_items(
+                    TransactItems=[put_office, update_floor],
+                )
             )
-        )
+        except self.client.exceptions.TransactionCanceledException as e:
+            print(e)
+            raise Exception("Office creation failed due to conflict") from e
 
     async def get_office_by_id(self, office_id: str)->Office:
         office_item = await to_thread(
@@ -61,3 +89,36 @@ class OfficeRepository:
         )
 
         return [Office(**cast(dict, o)) for o in offices]
+
+    async def delete_office(self, building_id: str, floor_number: int, office_id: str):
+        delete_office = {
+            "Delete": {
+                "TableName": TABLE,
+                "Key": {
+                    "PK": "OFFICE",
+                    "SK": f"DETAILS#{office_id}",
+                },
+                "ConditionExpression": "attribute_exists(PK) AND attribute_exists(SK)",
+            }
+        }
+
+        clear_floor = {
+            "Update": {
+                "TableName": TABLE,
+                "Key": {
+                    "PK": f"BUILDING#{building_id}",
+                    "SK": f"FLOORINFO#{floor_number}",
+                },
+                "UpdateExpression": "REMOVE OfficeId",
+                "ConditionExpression": "attribute_exists(PK) AND attribute_exists(SK) AND OfficeId = :office_id",
+                "ExpressionAttributeValues": {
+                    ":office_id": office_id,
+                },
+            }
+        }
+
+        await to_thread(
+            lambda: self.client.transact_write_items(
+                TransactItems=[delete_office, clear_floor]
+            )
+        )

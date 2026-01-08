@@ -6,3 +6,8 @@ class OfficeResponseDTO(BaseModel):
     floor_number: int = Field(alias="floor_number")
     office_name: str = Field(alias="office_name")
     office_id: str = Field(alias="office_id")
+
+
+class AddOfficeRequestDTO(BaseModel):
+    office_name: str = Field(alias="office_name")
+    floor_number: int = Field(alias="floor_number")

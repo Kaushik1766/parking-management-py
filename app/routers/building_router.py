@@ -9,6 +9,8 @@ from app.dto.building import AddBuildingRequestDTO, AddFloorRequestDTO
 from app.dto.login import UserJWT
 from app.models.roles import Roles
 from app.services.building import BuildingService
+from app.services.office import OfficeService
+from app.dto.office import AddOfficeRequestDTO
 
 router = APIRouter()
 
@@ -67,3 +69,33 @@ async def get_slots(
     building_service: Annotated[BuildingService, Depends(BuildingService)],
 ):
     return await building_service.get_slots(building_id=building_id, floor_number=floor_id)
+
+
+@router.post("/{building_id}/offices")
+async def add_office(
+        building_id: str,
+        req: AddOfficeRequestDTO,
+        current_user: Annotated[UserJWT, Depends(get_user([Roles.ADMIN]))],
+        office_service: Annotated[OfficeService, Depends(OfficeService)],
+):
+    office_id = await office_service.add_office(building_id=building_id, req=req)
+
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={"officeId": office_id},
+    )
+
+
+@router.delete("/{building_id}/offices/{office_id}")
+async def delete_office(
+        building_id: str,
+        office_id: str,
+        current_user: Annotated[UserJWT, Depends(get_user([Roles.ADMIN]))],
+        office_service: Annotated[OfficeService, Depends(OfficeService)],
+):
+    await office_service.delete_office(building_id=building_id, office_id=office_id)
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"message": "Office deleted successfully"},
+    )
