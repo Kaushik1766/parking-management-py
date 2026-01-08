@@ -51,9 +51,10 @@ class SlotRepository:
                     "PK": f"BUILDING#{slot.building_id}",
                     "SK": f"FLOOR#{slot.floor_number}#SLOT#{slot.slot_id}",
                 },
-                UpdateExpression="SET occupied_by = :occupied_by",
+                UpdateExpression="SET OccupiedBy = :occupied_by, IsAssigned = :is_assigned",
                 ExpressionAttributeValues={
                     ":occupied_by": slot.occupied_by.model_dump(by_alias=True) if slot.occupied_by else None,
+                    ":is_assigned": slot.is_assigned,
                 },
             )
         )

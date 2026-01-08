@@ -1,3 +1,5 @@
+import time
+
 from mypy_boto3_dynamodb.type_defs import PutTypeDef
 from app.models.slot import OccupantDetails
 from mypy_boto3_dynamodb.type_defs import UpdateItemInputTableUpdateItemTypeDef
@@ -108,30 +110,79 @@ class ParkingRepository:
 
 
     async def unpark_by_numberplate(self, user_id: str, numberplate: str):
-        parking = await to_thread(
+        print(f"userid = {user_id}, numberplate = {numberplate}")
+        parking_item = await to_thread(
             lambda: self.table.query(
                 KeyConditionExpression=Key("PK").eq(f"USER#{user_id}") & Key("SK").begins_with("PARKING#"),
-                FilterExpression=Attr("NumberPlate").eq(numberplate) & Attr("EndTime").not_exists(),
+                FilterExpression=Attr("Numberplate").eq(numberplate) & Attr("EndTime").eq(None),
                 Limit=1,
             ).get("Items")
         )
 
-        if not parking:
+        if not parking_item:
             raise WebException(status_code=404, message="No active parking found for the given numberplate", error_code=DB_ERROR)
 
-        parking_sk = parking[0]["SK"]
-        await to_thread(
-            lambda: self.table.update_item(
+        print(parking_item)
+        parking_sk = parking_item[0]["SK"]
+        parking = ParkingHistory(
+            user_id=user_id,
+            **cast(dict, parking_item[0])
+        )
+
+
+        update_vehicle : TransactWriteItemTypeDef = {
+            "Update": UpdateTypeDef(
+                Key={
+                    "PK": f"USER#{user_id}",
+                    "SK": f"VEHICLE#{numberplate}",
+                },
+                UpdateExpression="SET IsParked = :is_parked",
+                ExpressionAttributeValues={
+                    ":is_parked": False,
+                },
+                ConditionExpression="attribute_exists(PK) and attribute_exists(SK)",
+                TableName=TABLE,
+            )
+        }
+
+        update_slot : TransactWriteItemTypeDef = {
+            "Update": UpdateTypeDef(
+                Key={
+                    "PK": f"BUILDING#{parking.building_id}",
+                    "SK": f"FLOOR#{parking.floor_number}#SLOT#{parking.slot_id}",
+                },
+                UpdateExpression="SET IsOccupied = :is_occupied, OccupiedBy = :occupied_by",
+                ExpressionAttributeValues={
+                    ":is_occupied": False,
+                    ":occupied_by": None,
+                },
+                ConditionExpression="attribute_exists(PK) and attribute_exists(SK)",
+                TableName=TABLE,
+            )
+        }
+
+        update_parking_history : TransactWriteItemTypeDef = {
+            "Update": UpdateTypeDef(
                 Key={
                     "PK": f"USER#{user_id}",
                     "SK": parking_sk,
                 },
                 UpdateExpression="SET EndTime = :end_time",
                 ExpressionAttributeValues={
-                    ":end_time": int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp())
-                }
+                    ":end_time": int(time.time()),
+                },
+                ConditionExpression="attribute_exists(PK) and attribute_exists(SK)",
+                TableName=TABLE,
+            ),
+        }
+
+        await to_thread(
+            lambda : self.table.meta.client.transact_write_items(
+                TransactItems=[update_vehicle, update_slot, update_parking_history],
             )
         )
+
+
 
     async def get_parking_history(self, user_id: str, start_time: int, end_time: int) -> list[ParkingHistory]:
         response = await to_thread(

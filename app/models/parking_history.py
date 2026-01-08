@@ -9,7 +9,7 @@ def _now_ts() -> int:
 
 class ParkingHistory(BaseModel):
     user_id: str = Field(exclude=True)
-    numberplate: str = Field(alias="NumberPlate")
+    numberplate: str = Field(alias="Numberplate")
     building_id: str = Field(alias="BuildingId")
     floor_number: int = Field(alias="FloorNumber")
     slot_id: int = Field(alias="SlotId")

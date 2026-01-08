@@ -1,3 +1,5 @@
+from dns.rdtypes.util import priority_processing_order
+from pydantic import ValidationError
 import datetime
 import uuid
 from typing import Annotated
@@ -41,7 +43,7 @@ class ParkingService:
 
         parking = ParkingHistory(
             ParkingId=parking_id,
-            NumberPlate=vehicle.number_plate,
+            Numberplate=vehicle.number_plate,
             BuildingId=vehicle.assigned_slot.building_id,
             FloorNumber=vehicle.assigned_slot.floor_number,
             SlotId=vehicle.assigned_slot.slot_id,
@@ -57,18 +59,22 @@ class ParkingService:
 
     async def unpark(self, user_id: str, numberplate: str):
         # Update parking record end time
-        await self.parking_repo.unpark_by_numberplate(user_id, numberplate)
+        try:
+            await self.parking_repo.unpark_by_numberplate(user_id, numberplate)
+        except ValidationError as e:
+            print(e.errors())
+            raise
 
         # Clear slot occupancy for assigned slot
-        vehicle = await self.vehicle_repo.get_vehicle_by_number_plate(user_id, numberplate)
-        if vehicle and vehicle.assigned_slot:
-            await self.slot_repo.update_slot_occupancy(
-                building_id=vehicle.assigned_slot.building_id,
-                floor_number=vehicle.assigned_slot.floor_number,
-                slot_id=vehicle.assigned_slot.slot_id,
-                occupied_by=None,
-                is_occupied=False,
-            )
+        # vehicle = await self.vehicle_repo.get_vehicle_by_number_plate(user_id, numberplate)
+        # if vehicle and vehicle.assigned_slot:
+        #     await self.slot_repo.update_slot_occupancy(
+        #         building_id=vehicle.assigned_slot.building_id,
+        #         floor_number=vehicle.assigned_slot.floor_number,
+        #         slot_id=vehicle.assigned_slot.slot_id,
+        #         occupied_by=None,
+        #         is_occupied=False,
+        #     )
 
     async def get_parkings(self, user_id: str, start_time: int | None = None, end_time: int | None = None) -> list[ParkingHistoryResponseDTO]:
         if start_time is None:
