@@ -1,6 +1,6 @@
 from app.models.vehicle import AssignedSlot, VehicleType
 from uuid import uuid4
-from app.errors.web_exception import CONFLICT_ERROR
+from app.errors.web_exception import CONFLICT_ERROR, DB_ERROR
 from app.errors.web_exception import WebException
 from app.models.floor import Floor
 from app.dto.vehicle import AddVehicleRequestDTO
@@ -100,3 +100,11 @@ class VehicleService:
             vehicle_model.assigned_slot = similar_vehicles[0].assigned_slot
 
         await self.vehicle_repo.save_vehicle(vehicle_model, user_id)
+
+    async def delete_vehicle(self, number_plate: str, user_id: str):
+        vehicle = await self.vehicle_repo.get_vehicle_by_number_plate(user_id, number_plate)
+
+        if vehicle is None:
+            raise WebException(status_code=status.HTTP_404_NOT_FOUND, message="Vehicle not found", error_code=DB_ERROR)
+
+        await self.vehicle_repo.delete_vehicle(user_id, number_plate)

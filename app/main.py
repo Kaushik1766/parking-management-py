@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi import status
 from fastapi.responses import JSONResponse
 
-from app.routers import auth_router, vehicle_router
+from app.routers import auth_router, vehicle_router, building_router
 from app.dependencies import lifespan
 from app.errors.web_exception import WebException, UNEXPECTED_ERROR
 
@@ -31,3 +31,4 @@ def http_exception_handler(request: Request, exc: WebException):
 
 app.include_router(auth_router.router, prefix="/auth")
 app.include_router(vehicle_router.router, prefix="/vehicles")
+app.include_router(building_router.router, prefix="/buildings")

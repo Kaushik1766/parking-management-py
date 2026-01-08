@@ -32,6 +32,19 @@ class VehicleRepository:
 
         return vehicle_res
 
+    async def get_vehicle_by_number_plate(self, user_id: str, number_plate: str) -> Vehicle | None:
+        vehicle = await to_thread(
+            lambda: self.table.get_item(
+                Key={"PK": f"USER#{user_id}", "SK": f"VEHICLE#{number_plate}"},
+                ProjectionExpression="VehicleId, Numberplate, VehicleType, IsParked, AssignedSlot",
+            ).get("Item")
+        )
+
+        if vehicle is None:
+            return None
+
+        return Vehicle(**cast(dict, vehicle))
+
     async def save_vehicle(self, vehicle: Vehicle, user_id: str) :
         await to_thread(
             lambda: self.table.put_item(
@@ -41,5 +54,16 @@ class VehicleRepository:
                     "SK": f"VEHICLE#{vehicle.number_plate}",
                 },
                 ConditionExpression="attribute_not_exists(PK) and attribute_not_exists(SK)",
+            )
+        )
+
+    async def delete_vehicle(self, user_id: str, number_plate: str):
+        await to_thread(
+            lambda: self.table.delete_item(
+                Key={
+                    "PK": f"USER#{user_id}",
+                    "SK": f"VEHICLE#{number_plate}",
+                },
+                ConditionExpression="attribute_exists(PK) and attribute_exists(SK)",
             )
         )

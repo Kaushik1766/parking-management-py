@@ -38,3 +38,17 @@ async def add_vehicle(
         }
     )
 
+@router.delete("/{numberplate}")
+async def delete_vehicle(
+        numberplate: str,
+        current_user: Annotated[UserJWT, Depends(get_user([Roles.CUSTOMER]))],
+        vehicle_service: Annotated[VehicleService, Depends(VehicleService)]):
+    await vehicle_service.delete_vehicle(number_plate=numberplate, user_id=current_user.id)
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "message": "Vehicle deleted successfully",
+        }
+    )
+
