@@ -70,7 +70,7 @@ class VehicleService:
         vehicle_model = Vehicle(
             VehicleId=str(uuid4()),
             Numberplate=vehicle.number_plate,
-            VehicleType= VehicleType(vehicle.vehicle_type),
+            VehicleType= VehicleType.TWO_WHEELER if vehicle.vehicle_type == 0 else VehicleType.FOUR_WHEELER,
             IsParked=False,
         )
         if len(similar_vehicles) == 0:

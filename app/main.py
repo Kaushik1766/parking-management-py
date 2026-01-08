@@ -5,9 +5,17 @@ from fastapi.responses import JSONResponse
 from app.routers import auth_router, vehicle_router, building_router, office_router, parking_router
 from app.dependencies import lifespan
 from app.errors.web_exception import WebException, UNEXPECTED_ERROR
-from botocore.exceptions import ClientError  
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.exception_handler(HTTPException)
 def http_exception_handler(request: Request, exc: HTTPException):

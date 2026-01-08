@@ -1,3 +1,4 @@
+from mypy_boto3_dynamodb.type_defs import TransactWriteItemTypeDef
 from mypy_boto3_dynamodb.type_defs import UpdateItemInputTypeDef
 import boto3
 from typing import cast
@@ -22,7 +23,7 @@ class OfficeRepository:
         self.client = db.meta.client
 
     async def add_office(self, office: Office):
-        put_office = {
+        put_office: TransactWriteItemTypeDef = {
             "Put": {
                 "TableName": TABLE,
                 "Item": {
@@ -34,7 +35,7 @@ class OfficeRepository:
             }
         }
 
-        update_floor = {
+        update_floor: TransactWriteItemTypeDef = {
             "Update": {
                 "TableName": TABLE,
                 "Key": {
@@ -42,9 +43,10 @@ class OfficeRepository:
                     "SK": f"FLOORINFO#{office.floor_number}",
                 },
                 "UpdateExpression": "SET OfficeId = :office_id",
-                "ConditionExpression": "attribute_exists(PK) AND attribute_exists(SK) AND attribute_not_exists(OfficeId)",
+                "ConditionExpression": "attribute_exists(PK) AND attribute_exists(SK) AND OfficeId = :empty",
                 "ExpressionAttributeValues": {
                     ":office_id": office.office_id,
+                    ":empty": None
                 },
             }
         }
@@ -55,8 +57,8 @@ class OfficeRepository:
                     TransactItems=[put_office, update_floor],
                 )
             )
-        except self.client.exceptions.TransactionCanceledException as e:
-            print(e)
+        except self.table.meta.client.exceptions.TransactionCanceledException as e:
+            print(e.response.get("CancellationReasons"))
             raise Exception("Office creation failed due to conflict") from e
 
     async def get_office_by_id(self, office_id: str)->Office:
@@ -84,14 +86,14 @@ class OfficeRepository:
     async def get_all_offices(self) -> list[Office]:
         offices = await to_thread(
             lambda :self.table.query(
-                KeyConditionExpression=boto3.dynamodb.conditions.Key("PK").eq("OFFICE") & boto3.dynamodb.conditions.Key("SK").begins_with("DETAILS#"),
+                KeyConditionExpression=Key("PK").eq("OFFICE") & Key("SK").begins_with("DETAILS#"),
             ).get("Items", [])
         )
 
         return [Office(**cast(dict, o)) for o in offices]
 
     async def delete_office(self, building_id: str, floor_number: int, office_id: str):
-        delete_office = {
+        delete_office :TransactWriteItemTypeDef= {
             "Delete": {
                 "TableName": TABLE,
                 "Key": {
@@ -102,7 +104,7 @@ class OfficeRepository:
             }
         }
 
-        clear_floor = {
+        clear_floor :TransactWriteItemTypeDef= {
             "Update": {
                 "TableName": TABLE,
                 "Key": {

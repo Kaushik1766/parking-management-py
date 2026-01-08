@@ -4,12 +4,13 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from starlette import  status
 from app.dto.parking import ParkRequestDTO, ParkingHistoryResponseDTO
 from app.errors.web_exception import WebException, DB_ERROR, CONFLICT_ERROR
 from app.models.parking_history import ParkingHistory
 from app.models.slot import OccupantDetails
 from app.repository.building_repo import BuildingRepository
-from app.repository.parking_repo import ParkingRepostiory
+from app.repository.parking_repo import ParkingRepository
 from app.repository.slot_repo import SlotRepository
 from app.repository.vehicle_repo import VehicleRepository
 
@@ -17,7 +18,7 @@ from app.repository.vehicle_repo import VehicleRepository
 class ParkingService:
     def __init__(
             self,
-            parking_repo: Annotated[ParkingRepostiory, Depends(ParkingRepostiory)],
+            parking_repo: Annotated[ParkingRepository, Depends(ParkingRepository)],
             vehicle_repo: Annotated[VehicleRepository, Depends(VehicleRepository)],
             building_repo: Annotated[BuildingRepository, Depends(BuildingRepository)],
             slot_repo: Annotated[SlotRepository, Depends(SlotRepository)],
@@ -50,22 +51,7 @@ class ParkingService:
             VehicleType=vehicle.vehicle_type,
         )
 
-        occupant = OccupantDetails(
-            Username=user_email,
-            NumberPlate=vehicle.number_plate,
-            Email=user_email,
-            StartTime=start_ts,
-        )
-
         await self.parking_repo.add_parking(parking)
-
-        await self.slot_repo.update_slot_occupancy(
-            building_id=vehicle.assigned_slot.building_id,
-            floor_number=vehicle.assigned_slot.floor_number,
-            slot_id=vehicle.assigned_slot.slot_id,
-            occupied_by=occupant,
-            is_occupied=True,
-        )
 
         return parking_id
 
