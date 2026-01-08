@@ -4,7 +4,7 @@ from asyncio.threads import to_thread
 
 from app.models.building import Building
 from app.models.floor import Floor
-from app.models.slot import Slot
+from app.models.slot import Slot, OccupantDetails
 from mypy_boto3_dynamodb.service_resource import DynamoDBServiceResource
 from typing import Annotated
 
@@ -54,6 +54,21 @@ class SlotRepository:
                 UpdateExpression="SET occupied_by = :occupied_by",
                 ExpressionAttributeValues={
                     ":occupied_by": slot.occupied_by.model_dump(by_alias=True) if slot.occupied_by else None,
+                },
+            )
+        )
+
+    async def update_slot_occupancy(self, building_id: str, floor_number: int, slot_id: int, occupied_by: OccupantDetails | None, is_occupied: bool):
+        await to_thread(
+            lambda: self.table.update_item(
+                Key={
+                    "PK": f"BUILDING#{building_id}",
+                    "SK": f"FLOOR#{floor_number}#SLOT#{slot_id}",
+                },
+                UpdateExpression="SET OccupiedBy = :occupied_by, IsOccupied = :is_occupied",
+                ExpressionAttributeValues={
+                    ":occupied_by": occupied_by.model_dump(by_alias=True) if occupied_by else None,
+                    ":is_occupied": is_occupied,
                 },
             )
         )

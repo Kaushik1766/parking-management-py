@@ -10,7 +10,7 @@ from asyncio import to_thread
 
 from app.constants import TABLE
 from app.dependencies import get_db
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 
 
 class ParkingRepostiory:
@@ -23,24 +23,22 @@ class ParkingRepostiory:
 
 
     async def add_parking(self, parking: ParkingHistory):
-        await to_thread(
-            lambda: self.table.put_item(
-                Item={
-                    "PK": f"USER#{parking.user_id}",
-                    "SK": f"PARKING#{parking.start_time}",
-                    **parking.model_dump()
-                }
-            )
-        )
+        item = {
+            "PK": f"USER#{parking.user_id}",
+            "SK": f"PARKING#{parking.start_time}",
+            **parking.model_dump(exclude_none=True),
+        }
+
+        await to_thread(lambda: self.table.put_item(Item=item))
 
     async def unpark_by_numberplate(self, user_id: str, numberplate: str):
         parking = await to_thread(
             lambda: self.table.query(
-                KeyConditionExpression=Key("PK").eq(f"USER#{user_id}")& Key("SK").begins_with("PARKING#"),
-                FilterExpression=Key("NumberPlate").eq(numberplate) & Key("EndTime").not_exists(),
+                KeyConditionExpression=Key("PK").eq(f"USER#{user_id}") & Key("SK").begins_with("PARKING#"),
+                FilterExpression=Attr("NumberPlate").eq(numberplate) & Attr("EndTime").not_exists(),
                 Limit=1,
             ).get("Items")
-        )       
+        )
 
         if not parking:
             raise WebException(status_code=404, message="No active parking found for the given numberplate", error_code=DB_ERROR)
@@ -50,7 +48,7 @@ class ParkingRepostiory:
             lambda: self.table.update_item(
                 Key={
                     "PK": f"USER#{user_id}",
-                    "SK": f"PARKING#{parking_sk}",
+                    "SK": parking_sk,
                 },
                 UpdateExpression="SET EndTime = :end_time",
                 ExpressionAttributeValues={

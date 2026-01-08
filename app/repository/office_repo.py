@@ -1,15 +1,15 @@
+import boto3
 from typing import cast
 from asyncio.threads import to_thread
-from app.models.office import Office
-from app.models.slot import Slot, SlotType
-from app.models.floor import Floor
-from app.constants import SLOT_LAYOUT
-from app.constants import TABLE
-import boto3
-from app.dependencies import get_db
+from typing import Annotated
+
+from boto3.dynamodb.conditions import Key
 from fastapi.params import Depends
 from mypy_boto3_dynamodb.service_resource import DynamoDBServiceResource
-from typing import Annotated
+
+from app.constants import TABLE
+from app.dependencies import get_db
+from app.models.office import Office
 
 class OfficeRepository:
     def __init__(
@@ -42,3 +42,22 @@ class OfficeRepository:
         )
 
         return Office(**cast(dict, office_item))
+
+    async def get_offices(self) -> list[Office]:
+        offices = await to_thread(
+            lambda: self.table.query(
+                KeyConditionExpression=Key("PK").eq("OFFICE") & Key("SK").begins_with("DETAILS#"),
+                ProjectionExpression="OfficeName, BuildingId, FloorNumber, OfficeId",
+            ).get("Items", [])
+        )
+
+        return [Office(**cast(dict, office)) for office in offices]
+
+    async def get_all_offices(self) -> list[Office]:
+        offices = await to_thread(
+            lambda :self.table.query(
+                KeyConditionExpression=boto3.dynamodb.conditions.Key("PK").eq("OFFICE") & boto3.dynamodb.conditions.Key("SK").begins_with("DETAILS#"),
+            ).get("Items", [])
+        )
+
+        return [Office(**cast(dict, o)) for o in offices]
