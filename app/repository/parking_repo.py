@@ -111,22 +111,29 @@ class ParkingRepository:
 
     async def unpark_by_numberplate(self, user_id: str, numberplate: str):
         print(f"userid = {user_id}, numberplate = {numberplate}")
-        parking_item = await to_thread(
+        parking_items = await to_thread(
             lambda: self.table.query(
                 KeyConditionExpression=Key("PK").eq(f"USER#{user_id}") & Key("SK").begins_with("PARKING#"),
-                FilterExpression=Attr("Numberplate").eq(numberplate) & Attr("EndTime").eq(None),
-                Limit=1,
-            ).get("Items")
+                FilterExpression=(
+                    Attr("Numberplate").eq(numberplate)
+                    & (
+                        Attr("EndTime").not_exists()
+                        | Attr("EndTime").eq(None)
+                        | Attr("EndTime").eq("null")
+                    )
+                ),
+            ).get("Items", [])
         )
 
-        if not parking_item:
+        if not parking_items:
             raise WebException(status_code=404, message="No active parking found for the given numberplate", error_code=DB_ERROR)
 
-        print(parking_item)
-        parking_sk = parking_item[0]["SK"]
+        active_parking = parking_items[0]
+        print(active_parking)
+        parking_sk = active_parking["SK"]
         parking = ParkingHistory(
             user_id=user_id,
-            **cast(dict, parking_item[0])
+            **cast(dict, active_parking)
         )
 
 
