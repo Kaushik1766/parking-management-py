@@ -57,3 +57,13 @@ async def get_floors(
         building_service: Annotated[BuildingService, Depends(BuildingService)],
 ):
     return await building_service.get_floors(building_id=building_id)
+
+
+@router.get("/{building_id}/floors/{floor_id}/slots")
+async def get_slots(
+    building_id: str,
+    floor_id: int,
+    current_user: Annotated[UserJWT, Depends(get_user([Roles.ADMIN]))],
+    building_service: Annotated[BuildingService, Depends(BuildingService)],
+):
+    return await building_service.get_slots(building_id=building_id, floor_number=floor_id)

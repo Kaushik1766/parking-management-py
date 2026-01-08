@@ -23,3 +23,11 @@ class FloorResponseDTO(BaseModel):
     total_slots: int = Field(alias="totalSlots")
     available_slots: int = Field(alias="availableSlots")
     assigned_office: str | None = Field(alias="assignedOffice")
+
+
+class SlotResponseDTO(BaseModel):
+    building_id: str = Field(alias="buildingId")
+    floor_number: int = Field(alias="floorNumber")
+    slot_number: int = Field(alias="slotNumber")
+    slot_type: str = Field(alias="slotType")
+    is_assigned: bool = Field(alias="isAssigned")

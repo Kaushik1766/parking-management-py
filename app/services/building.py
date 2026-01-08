@@ -2,8 +2,13 @@ from uuid import uuid4
 from typing import Annotated
 
 from fastapi import Depends
+from starlette import status
+from app.models.floor import Floor
+from app.repository.slot_repo import SlotRepository
 
 from app.dto.building import AddBuildingRequestDTO, AddFloorRequestDTO, BuildingResponseDTO, FloorResponseDTO
+from app.dto.building import SlotResponseDTO
+from app.errors.web_exception import WebException, DB_ERROR
 from app.models.building import Building
 from app.repository.building_repo import BuildingRepository
 from app.repository.floor_repo import FloorRepository
@@ -16,10 +21,12 @@ class BuildingService:
             building_repo: Annotated[BuildingRepository, Depends(BuildingRepository)],
             floor_repo: Annotated[FloorRepository, Depends(FloorRepository)],
             office_repo: Annotated[OfficeRepository, Depends(OfficeRepository)],
+            slot_repo: Annotated[SlotRepository, Depends(SlotRepository)],
     ):
         self.building_repo = building_repo
         self.floor_repo = floor_repo
         self.office_repo = office_repo
+        self.slot_repo = slot_repo
 
     async def add_building(self, req: AddBuildingRequestDTO):
         building = Building(
@@ -73,3 +80,25 @@ class BuildingService:
             )
 
         return floor_responses
+
+    async def get_slots(self, building_id: str, floor_number: int) -> list[SlotResponseDTO]:
+        await self.building_repo.get_building_by_id(building_id)
+
+        floors = await self.floor_repo.get_floors(building_id)
+        if not any(f.floor_number == floor_number for f in floors):
+            raise WebException(status_code=status.HTTP_404_NOT_FOUND, message="Floor not found", error_code=DB_ERROR)
+
+        slots = await self.slot_repo.get_slots_by_floor(
+            Floor(building_id=building_id, FloorNumber=floor_number)
+        )
+
+        return [
+            SlotResponseDTO(
+                buildingId=building_id,
+                floorNumber=floor_number,
+                slotNumber=s.slot_id,
+                slotType=s.slot_type,
+                isAssigned=s.is_assigned,
+            )
+            for s in slots
+        ]
