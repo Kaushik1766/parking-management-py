@@ -12,7 +12,11 @@ router = APIRouter()
 
 
 @router.post("/login")
-async def login(request: LoginDTO, auth_service: AuthService = Depends(AuthService)):
+async def login(
+    request: LoginDTO,
+    auth_service: Annotated[AuthService, Depends(AuthService)]
+):
+    print(request)
     token = await auth_service.login(request)
     return JwtDTO(jwt=token)
 

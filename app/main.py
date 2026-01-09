@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi import status
+from fastapi.exceptions import ValidationException
 from fastapi.responses import JSONResponse
 
 from app.routers import auth_router, vehicle_router, building_router, office_router, parking_router
@@ -24,18 +25,26 @@ def http_exception_handler(request: Request, exc: HTTPException):
         content={"message": exc.detail, "code": UNEXPECTED_ERROR},
     )
 
-@app.exception_handler(Exception)
-def exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"message": "Internal Server Error", "code": UNEXPECTED_ERROR},
-    )
+# @app.exception_handler(Exception)
+# def exception_handler(request: Request, exc: Exception):
+#     return JSONResponse(
+#         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#         content={"message": "Internal Server Error", "code": UNEXPECTED_ERROR},
+#     )
 
 @app.exception_handler(WebException)
-def http_exception_handler(request: Request, exc: WebException):
+def web_exception_handler(request: Request, exc: WebException):
     return JSONResponse(
         status_code=exc.status_code,
         content={"message": exc.message, "code": exc.error_code},
+    )
+
+@app.exception_handler(ValidationException)
+def validation_exception_handler(request: Request, exc: ValidationException):
+    print(exc.errors())
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"message": str(exc), "code": UNEXPECTED_ERROR},
     )
 
 app.include_router(auth_router.router, prefix="/auth", tags=["auth"])

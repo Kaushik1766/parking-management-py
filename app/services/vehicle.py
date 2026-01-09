@@ -15,8 +15,9 @@ from app.repository.building_repo import BuildingRepository
 from app.repository.office_repo import OfficeRepository
 from app.repository.slot_repo import SlotRepository
 from app.repository.vehicle_repo import VehicleRepository
+from app.utils.singleton import singleton
 
-
+@singleton
 class VehicleService:
     def __init__(
             self,

@@ -1,6 +1,8 @@
 import time
 
+from fastapi.exceptions import ValidationException
 from mypy_boto3_dynamodb.type_defs import PutTypeDef
+from pydantic import ValidationError
 from app.models.slot import OccupantDetails
 from mypy_boto3_dynamodb.type_defs import UpdateItemInputTableUpdateItemTypeDef
 from mypy_boto3_dynamodb.type_defs import UpdateTypeDef
@@ -102,11 +104,15 @@ class ParkingRepository:
             ),
         }
 
-        await to_thread(
-            lambda : self.table.meta.client.transact_write_items(
-                TransactItems=[update_vehicle, update_slot, put_parking_history],
+        try:
+            await to_thread(
+                lambda : self.table.meta.client.transact_write_items(
+                    TransactItems=[update_vehicle, update_slot, put_parking_history],
+                )
             )
-        )
+        except self.table.meta.client.exceptions.TransactionCanceledException as e:
+            print(e.response.get("CancellationReasons"))
+            raise WebException(status_code=status.HTTP_409_CONFLICT, message="Parking creation failed due to conflict", error_code=DB_ERROR) from e
 
 
     async def unpark_by_numberplate(self, user_id: str, numberplate: str):
@@ -190,12 +196,21 @@ class ParkingRepository:
         )
 
 
-
     async def get_parking_history(self, user_id: str, start_time: int, end_time: int) -> list[ParkingHistory]:
         response = await to_thread(
             lambda: self.table.query(
                 KeyConditionExpression=Key("PK").eq(f"USER#{user_id}") & Key("SK").between(f"PARKING#{start_time}", f"PARKING#{end_time}"),
+                FilterExpression=Attr("EndTime").attribute_type("N")
             ).get("Items", [])
         )
         
-        return [ParkingHistory(**cast(dict, item)) for item in response]
+        history = []
+        try:
+            history =[ParkingHistory(
+                user_id=user_id,
+                **cast(dict, item)) for item in response
+            ] 
+        except ValidationError as e:
+            print("Data validation error while fetching parking history:", e.errors())
+            raise WebException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, message="Data validation error while fetching parking history", error_code=DB_ERROR) from e
+        return history

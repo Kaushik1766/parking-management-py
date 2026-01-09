@@ -11,8 +11,9 @@ from app.models.roles import Roles
 from app.models.user import User
 from app.repository.user_repo import UserRepository
 from app.dto.login import LoginDTO
+from app.utils.singleton import singleton
 
-
+@singleton
 class AuthService:
     def __init__(self, repo: Annotated[UserRepository, Depends(UserRepository)]):
         self.repo = repo

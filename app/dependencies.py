@@ -27,18 +27,10 @@ async def lifespan(app: FastAPI):
 
 def get_db(req: Request) -> DynamoDBServiceResource:
     return req.app.state.db
+    # return boto3.resource("dynamodb")
 
 
 bearer_security = HTTPBearer(scheme_name='Bearer')
-
-# def get_user(token: Annotated[HTTPAuthorizationCredentials, Depends(bearer_security)]):
-#     try:
-#         decoded_token = jwt.decode(jwt=token.credentials, verify=True, key="asdfasasdfasdf", algorithms=["HS256"])
-#         return UserJWT(**decoded_token)
-#
-#     except Exception as exc:
-#         print(exc)
-#         raise WebException(status_code=status.HTTP_401_UNAUTHORIZED, error_code=UNAUTHORIZED_ERROR,  message="JWT is invalid or expired")
 
 def get_user(allowed_roles:list[Roles]):
     def get_auth_user(token: Annotated[HTTPAuthorizationCredentials, Depends(bearer_security)]):

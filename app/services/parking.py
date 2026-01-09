@@ -15,8 +15,9 @@ from app.repository.building_repo import BuildingRepository
 from app.repository.parking_repo import ParkingRepository
 from app.repository.slot_repo import SlotRepository
 from app.repository.vehicle_repo import VehicleRepository
+from app.utils.singleton import singleton
 
-
+@singleton
 class ParkingService:
     def __init__(
             self,
@@ -101,5 +102,6 @@ class ParkingService:
                     vehicle_type=str(record.vehicle_type) if record.vehicle_type else "",
                 )
             )
+        responses.sort(key=lambda x: x.start_time, reverse=True)
 
         return responses

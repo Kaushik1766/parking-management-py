@@ -71,7 +71,7 @@ async def get_slots(
     return await building_service.get_slots(building_id=building_id, floor_number=floor_id)
 
 
-@router.post("/{building_id}/offices")
+@router.post("/{building_id}/offices", tags=["offices"])
 async def add_office(
         building_id: str,
         req: AddOfficeRequestDTO,
@@ -86,7 +86,7 @@ async def add_office(
     )
 
 
-@router.delete("/{building_id}/offices/{office_id}")
+@router.delete("/{building_id}/offices/{office_id}", tags=["offices"])
 async def delete_office(
         building_id: str,
         office_id: str,

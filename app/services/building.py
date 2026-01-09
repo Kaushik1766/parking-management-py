@@ -14,7 +14,9 @@ from app.repository.building_repo import BuildingRepository
 from app.repository.floor_repo import FloorRepository
 from app.repository.office_repo import OfficeRepository
 
+from app.utils.singleton import singleton
 
+@singleton
 class BuildingService:
     def __init__(
             self,
