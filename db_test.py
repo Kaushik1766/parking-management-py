@@ -1,3 +1,10 @@
+from typing import cast
+from app.models import slot
+from app.models.floor import Floor
+from app.models.slot import Slot
+from boto3.dynamodb.conditions import Key
+from app.constants import TABLE
+from app.repository.slot_repo import SlotRepository
 from app.repository.user_repo import UserRepository
 from app.repository.floor_repo import FloorRepository
 from app.repository.office_repo import OfficeRepository
@@ -12,12 +19,16 @@ import boto3
 
 async def main():
     db = boto3.resource('dynamodb')
-    building_repo = BuildingRepository(db)
-    # await building_repo.add_building(Building(
-    #     BuildingId=str(uuid4()),
-    #     BuildingName="AdminOffice"
-    # ))
-    # await OfficeRepository(db).add_office(Office(BuildingId="61fb1c4a-6a24-42ea-ba43-cbc2f1126f1b", FloorNumber=2, OfficeId=str(uuid4()), OfficeName="MainOffice"))
+    
+    slot_repo = SlotRepository(db)
+
+    slots = await slot_repo.get_slots_by_floor(floor=Floor(
+            building_id="b32fb06e-5169-43bb-bcbe-5047b022eedd",
+            FloorNumber=1,
+        )
+    )
+    for s in slots:
+        print(s)
 
 
 asyncio.run(main())

@@ -1,3 +1,4 @@
+import datetime
 from uuid import uuid4
 from typing import Annotated
 
@@ -6,8 +7,14 @@ from starlette import status
 from app.models.floor import Floor
 from app.repository.slot_repo import SlotRepository
 
-from app.dto.building import AddBuildingRequestDTO, AddFloorRequestDTO, BuildingResponseDTO, FloorResponseDTO
-from app.dto.building import SlotResponseDTO
+from app.dto.building import (
+    AddBuildingRequestDTO,
+    AddFloorRequestDTO,
+    BuildingResponseDTO,
+    FloorResponseDTO,
+    ParkingStatusResponseDTO,
+    SlotResponseDTO,
+)
 from app.errors.web_exception import WebException, DB_ERROR
 from app.models.building import Building
 from app.repository.building_repo import BuildingRepository
@@ -94,13 +101,32 @@ class BuildingService:
             Floor(building_id=building_id, FloorNumber=floor_number)
         )
 
-        return [
-            SlotResponseDTO(
-                buildingId=building_id,
-                floorNumber=floor_number,
-                slotNumber=s.slot_id,
-                slotType=s.slot_type,
-                isAssigned=s.is_assigned,
+        slot_responses: list[SlotResponseDTO] = []
+
+        for slot in slots:
+            parking_status = None
+            if slot.occupied_by is not None:
+                parked_at_iso = (
+                    datetime.datetime.fromtimestamp(slot.occupied_by.start_time, tz=datetime.timezone.utc)
+                    .isoformat()
+                    .replace("+00:00", "Z")
+                )
+                parking_status = ParkingStatusResponseDTO(
+                    numberPlate=slot.occupied_by.number_plate,
+                    parkedAt=parked_at_iso,
+                    userName=slot.occupied_by.username,
+                    userEmail=slot.occupied_by.email,
+                )
+
+            slot_responses.append(
+                SlotResponseDTO(
+                    buildingId=building_id,
+                    floorNumber=floor_number,
+                    slotNumber=slot.slot_id,
+                    slotType=slot.slot_type.value,
+                    isAssigned=slot.is_assigned,
+                    parkingStatus=parking_status,
+                )
             )
-            for s in slots
-        ]
+
+        return slot_responses
