@@ -64,7 +64,7 @@ class FloorRepository:
             },
             UpdateExpression="SET TotalFloors = TotalFloors + :inc, TotalSlots = TotalSlots + :slots, AvailableSlots = AvailableSlots + :avail",
             ExpressionAttributeValues={
-                ":inc": len(SLOT_LAYOUT),
+                ":inc": 1,
                 ":slots": len(SLOT_LAYOUT),
                 ":avail": len(SLOT_LAYOUT),
             }

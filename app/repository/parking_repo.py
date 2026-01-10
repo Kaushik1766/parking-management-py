@@ -92,6 +92,38 @@ class ParkingRepository:
             )
         }
 
+        decrement_floor_available: TransactWriteItemTypeDef = {
+            "Update": UpdateTypeDef(
+                Key={
+                    "PK": f"BUILDING#{parking.building_id}",
+                    "SK": f"FLOORINFO#{parking.floor_number}",
+                },
+                UpdateExpression="SET AvailableSlots = AvailableSlots - :one",
+                ExpressionAttributeValues={
+                    ":one": 1,
+                    ":zero": 0,
+                },
+                ConditionExpression="attribute_exists(PK) and attribute_exists(SK) and AvailableSlots > :zero",
+                TableName=TABLE,
+            )
+        }
+
+        decrement_building_available: TransactWriteItemTypeDef = {
+            "Update": UpdateTypeDef(
+                Key={
+                    "PK": "BUILDING",
+                    "SK": f"BUILDING#{parking.building_id}",
+                },
+                UpdateExpression="SET AvailableSlots = AvailableSlots - :one",
+                ExpressionAttributeValues={
+                    ":one": 1,
+                    ":zero": 0,
+                },
+                ConditionExpression="attribute_exists(PK) and attribute_exists(SK) and AvailableSlots > :zero",
+                TableName=TABLE,
+            )
+        }
+
         put_parking_history : TransactWriteItemTypeDef = {
             "Put": PutTypeDef(
                 TableName=TABLE,
@@ -107,7 +139,13 @@ class ParkingRepository:
         try:
             await to_thread(
                 lambda : self.table.meta.client.transact_write_items(
-                    TransactItems=[update_vehicle, update_slot, put_parking_history],
+                        TransactItems=[
+                            update_vehicle,
+                            update_slot,
+                            decrement_floor_available,
+                            decrement_building_available,
+                            put_parking_history,
+                        ],
                 )
             )
         except self.table.meta.client.exceptions.TransactionCanceledException as e:
@@ -174,6 +212,36 @@ class ParkingRepository:
             )
         }
 
+        increment_floor_available : TransactWriteItemTypeDef = {
+            "Update": UpdateTypeDef(
+                Key={
+                    "PK": f"BUILDING#{parking.building_id}",
+                    "SK": f"FLOORINFO#{parking.floor_number}",
+                },
+                UpdateExpression="SET AvailableSlots = AvailableSlots + :one",
+                ExpressionAttributeValues={
+                    ":one": 1,
+                },
+                ConditionExpression="attribute_exists(PK) and attribute_exists(SK)",
+                TableName=TABLE,
+            )
+        }
+
+        increment_building_available : TransactWriteItemTypeDef = {
+            "Update": UpdateTypeDef(
+                Key={
+                    "PK": "BUILDING",
+                    "SK": f"BUILDING#{parking.building_id}",
+                },
+                UpdateExpression="SET AvailableSlots = AvailableSlots + :one",
+                ExpressionAttributeValues={
+                    ":one": 1,
+                },
+                ConditionExpression="attribute_exists(PK) and attribute_exists(SK)",
+                TableName=TABLE,
+            )
+        }
+
         update_parking_history : TransactWriteItemTypeDef = {
             "Update": UpdateTypeDef(
                 Key={
@@ -191,7 +259,13 @@ class ParkingRepository:
 
         await to_thread(
             lambda : self.table.meta.client.transact_write_items(
-                TransactItems=[update_vehicle, update_slot, update_parking_history],
+                TransactItems=[
+                    update_vehicle,
+                    update_slot,
+                    increment_floor_available,
+                    increment_building_available,
+                    update_parking_history,
+                ],
             )
         )
 
