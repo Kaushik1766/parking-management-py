@@ -1,2 +1,2 @@
-TABLE = "parking-management-test"
+TABLE = "parking-management"
 SLOT_LAYOUT = '000000000000000111111111111111'

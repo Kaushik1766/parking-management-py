@@ -3,7 +3,7 @@ from fastapi import status
 from fastapi.exceptions import ValidationException
 from fastapi.responses import JSONResponse
 
-from app.routers import auth_router, vehicle_router, building_router, office_router, parking_router
+from app.routers import auth_router, vehicle_router, building_router, office_router, parking_router, billing_router
 from app.dependencies import lifespan
 from app.errors.web_exception import WebException, UNEXPECTED_ERROR
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,3 +52,4 @@ app.include_router(vehicle_router.router, prefix="/vehicles", tags=["vehicles"])
 app.include_router(building_router.router, prefix="/buildings", tags=["buildings"])
 app.include_router(office_router.router, prefix="/offices",tags=["offices"])
 app.include_router(parking_router.router, prefix="/parkings", tags=["parkings"])
+app.include_router(billing_router.router)
