@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException
 
 from app.dto.register import RegisterDTO
+from app.errors.web_exception import UNAUTHORIZED_ERROR, WebException
 from app.models.roles import Roles
 from app.models.user import User
 from app.repository.user_repo import UserRepository
@@ -24,7 +25,7 @@ class AuthService:
         if not bcrypt.checkpw(
             req.password.encode("utf-8"), user.password.encode("utf-8")
         ):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            raise WebException(status_code=401, message="Invalid credentials", error_code=UNAUTHORIZED_ERROR)
 
         token = jwt.encode(
             {

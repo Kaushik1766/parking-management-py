@@ -26,14 +26,14 @@ async def register(request: RegisterDTO, auth: AuthService = Depends(AuthService
     await auth.register(request)
     return Response(status_code=status.HTTP_201_CREATED)
 
-security = HTTPBearer(
-    scheme_name="Bearer",
-    bearerFormat="Bearer",
-)
-@router.get("/test")
-async def auth_test(creds: Annotated[HTTPAuthorizationCredentials, Depends(security)]):
-    print(creds.model_dump())
-    return JSONResponse(
-        content={"message": "Hello, world!"},
-        status_code=status.HTTP_200_OK,
-    )
+# security = HTTPBearer(
+#     scheme_name="Bearer",
+#     bearerFormat="Bearer",
+# )
+# @router.get("/test")
+# async def auth_test(creds: Annotated[HTTPAuthorizationCredentials, Depends(security)]):
+#     print(creds.model_dump())
+#     return JSONResponse(
+#         content={"message": "Hello, world!"},
+#         status_code=status.HTTP_200_OK,
+#     )

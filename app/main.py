@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from app.routers import auth_router, vehicle_router, building_router, office_router, parking_router, billing_router
 from app.dependencies import lifespan
-from app.errors.web_exception import WebException, UNEXPECTED_ERROR
+from app.errors.web_exception import VALIDATION_ERROR, WebException, UNEXPECTED_ERROR
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(lifespan=lifespan)
@@ -44,7 +44,7 @@ def validation_exception_handler(request: Request, exc: ValidationException):
     print(exc.errors())
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"message": str(exc), "code": UNEXPECTED_ERROR},
+        content={"message": str(exc), "code": VALIDATION_ERROR},
     )
 
 app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
