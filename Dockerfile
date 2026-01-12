@@ -13,6 +13,6 @@ COPY ./app /code/app
 
 EXPOSE 8000
 
-CMD ["fastapi", "run", "--workers", "4", "--port", "8000", "app/main.py"]
+CMD ["fastapi", "run", "--workers", "4", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*", "app/main.py"]
 
 #ENTRYPOINT ["top", "-b"]

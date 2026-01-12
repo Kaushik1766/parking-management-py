@@ -1,4 +1,4 @@
-version = 1.0.3
+version = 1.0.5
 build:
 	uv export --no-dev --format requirements-txt --output-file requirements.txt
 	docker build \

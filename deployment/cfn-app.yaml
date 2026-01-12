@@ -16,13 +16,17 @@ Parameters:
     Type: AWS::EC2::VPC::Id
     Description: "VPC ID for ECS tasks"
     Default: vpc-0e26374029bc79bed
+  DynamoTableArn:
+    Type: String
+    Description: "ARN of the DynamoDB table the task needs to access"
+    Default: arn:aws:dynamodb:ap-south-1:513758042129:table/parking-management-test
 
 Resources:
 
   ParkingManagementLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /ecs/parking-management-log-group
+      LogGroupName: !Sub "/ecs/${AWS::StackName}-logs"
       RetentionInDays: 7
 
   ParkingManagementTask:
@@ -30,7 +34,7 @@ Resources:
     Properties:
       NetworkMode: awsvpc
       ContainerDefinitions:
-        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.3
+        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.4
           Name: parking-management-image
           Essential: true
           PortMappings:
@@ -50,17 +54,49 @@ Resources:
 
       Cpu: 1 vCPU
       Memory: 2 GB
-      Family: parking-management-family
+      Family: !Sub "${AWS::StackName}-family"
       ExecutionRoleArn: arn:aws:iam::513758042129:role/ecsTaskExecutionRole
+      TaskRoleArn: !GetAtt ParkingManagementTaskRole.Arn
       RuntimePlatform:
         OperatingSystemFamily: LINUX
       RequiresCompatibilities:
         - "FARGATE"
 
+  ParkingManagementTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: !Sub "${AWS::StackName}-dynamodb-access"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:DescribeTable
+                Resource:
+                  - !Ref DynamoTableArn
+                  - !Sub "${DynamoTableArn}/index/*"
+
   ParkingManagementCluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: ParkingManagementCluster
+      ClusterName: !Sub "${AWS::StackName}-cluster"
       CapacityProviders:
         - FARGATE
       DefaultCapacityProviderStrategy:
@@ -110,7 +146,7 @@ Resources:
     Properties:
       Cluster: !GetAtt ParkingManagementCluster.Arn
       LaunchType: FARGATE
-      ServiceName: ParkingManagementService
+      ServiceName: !Sub "${AWS::StackName}-service"
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
@@ -127,7 +163,7 @@ Resources:
   ParkingManagementALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: ParkingManagementALB
+      Name: !Sub "${AWS::StackName}-alb"
       Scheme: internet-facing
       Subnets: !Ref Subnets
       SecurityGroups:
@@ -136,7 +172,7 @@ Resources:
   ParkingManagementTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: ParkingManagementTargetGroup
+      Name: !Sub "${AWS::StackName}-tg"
       Port: 8000
       Protocol: HTTP
       HealthCheckEnabled: true
@@ -159,7 +195,10 @@ Resources:
     Properties:
       MaxCapacity: 3
       MinCapacity: 0
-      ResourceId: !Sub service/${ParkingManagementCluster}/${ParkingManagementService}
+      ResourceId: !Sub
+        - service/${ClusterName}/${ServiceName}
+        - ClusterName: !Ref ParkingManagementCluster
+          ServiceName: !GetAtt ParkingManagementService.Name
       RoleARN: arn:aws:iam::513758042129:role/ApplicationAutoScalingECSRole
       ScalableDimension: ecs:service:DesiredCount
       ServiceNamespace: ecs
