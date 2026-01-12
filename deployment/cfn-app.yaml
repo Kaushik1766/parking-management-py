@@ -3,14 +3,35 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Template for deploying parking management fastapi project to ECS"
 
+Parameters:
+  DesiredCount:
+    Type: Number
+    Default: 1
+    Description: "Number of desired ECS tasks"
+  Subnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: "List of Subnet IDs for ECS tasks"
+    Default: subnet-0270635e743726ff8,subnet-0b31ae9efb5f34921,subnet-085cf231024321541 
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: "VPC ID for ECS tasks"
+    Default: vpc-0e26374029bc79bed
+
 Resources:
+
+  ParkingManagementLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/parking-management-log-group
+      RetentionInDays: 7
+
   ParkingManagementTask:
     Type: AWS::ECS::TaskDefinition
     Properties:
       NetworkMode: awsvpc
       ContainerDefinitions:
-        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.0
-          Name: parking-mangement-image
+        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.3
+          Name: parking-management-image
           Essential: true
           PortMappings:
             - ContainerPort: 8000
@@ -20,9 +41,15 @@ Resources:
             Command:
               ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
             StartPeriod: 60
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ParkingManagementLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: api
 
       Cpu: 1 vCPU
-      Memory: 1 GB
+      Memory: 2 GB
       Family: parking-management-family
       ExecutionRoleArn: arn:aws:iam::513758042129:role/ecsTaskExecutionRole
       RuntimePlatform:
@@ -42,13 +69,14 @@ Resources:
   ParkingManagementECSSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow incoming http traffic
-      GroupName: ParkingManagementECS-SG
+      GroupDescription: Allow incoming traffic from ALB
+      # GroupName: ParkingManagementECS-SG
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          CidrIpv6: ::/0
+          FromPort: 8000
+          ToPort: 8000
+          SourceSecurityGroupId: !Ref ParkingManagementALBSG
       SecurityGroupEgress:
         - IpProtocol: "-1"
           CidrIp: 0.0.0.0/0
@@ -57,18 +85,95 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Allow incoming http traffic
-      GroupName: ParkingManagementALB-SG
+      # GroupName: ParkingManagementALB-SG
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           CidrIp: 0.0.0.0/0
+          FromPort: 80
+          ToPort: 80
         - IpProtocol: tcp
           CidrIpv6: ::/0
+          FromPort: 80
+          ToPort: 80
       SecurityGroupEgress:
         - IpProtocol: "-1"
           CidrIp: 0.0.0.0/0
+        - IpProtocol: "-1"
+          CidrIpv6: ::/0
+          
+  
 
   ParkingManagementService:
     Type: AWS::ECS::Service
+    DependsOn: ParkingManagementListener
     Properties:
       Cluster: !GetAtt ParkingManagementCluster.Arn
       LaunchType: FARGATE
+      ServiceName: ParkingManagementService
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref ParkingManagementECSSG
+          Subnets: !Ref Subnets
+      TaskDefinition: !Ref ParkingManagementTask
+      DesiredCount: !Ref DesiredCount
+      LoadBalancers:
+        - ContainerName: parking-management-image
+          ContainerPort: 8000
+          TargetGroupArn: !Ref ParkingManagementTargetGroup
+  
+  ParkingManagementALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: ParkingManagementALB
+      Scheme: internet-facing
+      Subnets: !Ref Subnets
+      SecurityGroups:
+        - !Ref ParkingManagementALBSG
+        
+  ParkingManagementTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: ParkingManagementTargetGroup
+      Port: 8000
+      Protocol: HTTP
+      HealthCheckEnabled: true
+      HealthCheckPath: /health
+      VpcId: !Ref VpcId
+      TargetType: ip
+      
+  ParkingManagementListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ParkingManagementALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ParkingManagementTargetGroup
+          
+  ParkingManagementScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 3
+      MinCapacity: 0
+      ResourceId: !Sub service/${ParkingManagementCluster}/${ParkingManagementService}
+      RoleARN: arn:aws:iam::513758042129:role/ApplicationAutoScalingECSRole
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  ParkingManagementScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ParkingManagementRequestCountScalingPolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ParkingManagementScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ALBRequestCountPerTarget
+          ResourceLabel: !Sub ${ParkingManagementALB.LoadBalancerFullName}/${ParkingManagementTargetGroup.TargetGroupFullName}
+        TargetValue: 50.0
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 300
