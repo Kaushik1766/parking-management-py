@@ -10,6 +10,7 @@ dependencies = [
     "boto3-stubs~=1.42.18",
     "botocore[crt]>=1.42.18",
     "fastapi[standard]>=0.128.0",
+    "moto>=5.1.19",
     "mypy==1.19.1",
     "mypy-boto3-dynamodb>=1.42.3",
     "pyjwt>=2.10.1",

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/awslabs/goformation/master/schema/cloudformation.schema.json
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Template for deploying parking management fastapi project to ECS"
+
+Resources:
+  ParkingManagementRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: parking-management-py
