@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/awslabs/goformation/master/schema/cloudformation.schema.json
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Template for deploying parking management fastapi project to ECS"
+
+Resources:
+  ParkingManagementTask:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      NetworkMode: awsvpc
+      ContainerDefinitions:
+        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.0
+          Name: parking-mangement-image
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8000
+              Protocol: tcp
+              Name: parking-management-tcp-port
+          HealthCheck:
+            Command:
+              ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+            StartPeriod: 60
+
+      Cpu: 1 vCPU
+      Memory: 1 GB
+      Family: parking-management-family
+      ExecutionRoleArn: arn:aws:iam::513758042129:role/ecsTaskExecutionRole
+      RuntimePlatform:
+        OperatingSystemFamily: LINUX
+      RequiresCompatibilities:
+        - "FARGATE"
+
+  ParkingManagementCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: ParkingManagementCluster
+      CapacityProviders:
+        - FARGATE
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+
+  ParkingManagementECSSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow incoming http traffic
+      GroupName: ParkingManagementECS-SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          CidrIpv6: ::/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+
+  ParkingManagementALBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow incoming http traffic
+      GroupName: ParkingManagementALB-SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          CidrIpv6: ::/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+
+  ParkingManagementService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !GetAtt ParkingManagementCluster.Arn
+      LaunchType: FARGATE

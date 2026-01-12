@@ -18,7 +18,9 @@ from app.errors.web_exception import WebException, UNAUTHORIZED_ERROR
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
-        db: DynamoDBServiceResource = boto3.resource("dynamodb")
+        db: DynamoDBServiceResource = boto3.resource(
+            "dynamodb", region_name="ap-south-1"
+        )
         app.state.db = db
         yield
     except Exception as e:
@@ -30,20 +32,38 @@ def get_db(req: Request) -> DynamoDBServiceResource:
     # return boto3.resource("dynamodb")
 
 
-bearer_security = HTTPBearer(scheme_name='Bearer')
+bearer_security = HTTPBearer(scheme_name="Bearer")
 
-def get_user(allowed_roles:list[Roles]):
-    def get_auth_user(token: Annotated[HTTPAuthorizationCredentials, Depends(bearer_security)]):
+
+def get_user(allowed_roles: list[Roles]):
+    def get_auth_user(
+        token: Annotated[HTTPAuthorizationCredentials, Depends(bearer_security)],
+    ):
         try:
-            decoded_token = jwt.decode(jwt=token.credentials, verify=True, key="asdfasasdfasdf", algorithms=["HS256"])
+            decoded_token = jwt.decode(
+                jwt=token.credentials,
+                verify=True,
+                key="asdfasasdfasdf",
+                algorithms=["HS256"],
+            )
             user = UserJWT(**decoded_token)
 
             if user.role not in allowed_roles:
-                raise WebException(status_code=401, error_code=UNAUTHORIZED_ERROR, message="Unauthorized user")
+                raise WebException(
+                    status_code=401,
+                    error_code=UNAUTHORIZED_ERROR,
+                    message="Unauthorized user",
+                )
             return user
         except WebException:
             raise
         except Exception as exc:
             print(exc)
-            raise WebException(status_code=status.HTTP_401_UNAUTHORIZED, error_code=UNAUTHORIZED_ERROR,  message="JWT is invalid or expired")
+            raise WebException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                error_code=UNAUTHORIZED_ERROR,
+                message="JWT is invalid or expired",
+            )
+
     return get_auth_user
+
