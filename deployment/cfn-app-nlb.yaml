@@ -24,14 +24,6 @@ Parameters:
     Type: String
     Description: "ARN of the ACM certificate for the ALB"
     Default: arn:aws:acm:ap-south-1:513758042129:certificate/1efd4492-31b3-48af-b04d-ba5c731543fd
-  HostedZoneId:
-    Type: String
-    Description: "ID of Hosted Zone in which we are deploying"
-    Default: Z04882262Z8WPNRFIWJUE
-  HostedZoneUrl:
-    Type: String
-    Description: Desired url for backend
-    Default: 1337park-alb.kaushiksaha.me
 
 Resources:
   ParkingManagementLogGroup:
@@ -182,6 +174,7 @@ Resources:
     Properties:
       Name: !Sub "${AWS::StackName}-alb"
       Scheme: internet-facing
+      Type: network
       Subnets: !Ref Subnets
       SecurityGroups:
         - !Ref ParkingManagementALBSG
@@ -252,12 +245,3 @@ Resources:
         ScaleInCooldown: 300
         ScaleOutCooldown: 300
 
-  ParkingManagementRecordSet:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      HostedZoneId: !Ref HostedZoneId
-      Name: !Ref HostedZoneUrl
-      Type: A
-      AliasTarget:
-        DNSName: !GetAtt ParkingManagementALB.DNSName
-        HostedZoneId: !GetAtt ParkingManagementALB.CanonicalHostedZoneID

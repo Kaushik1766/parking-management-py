@@ -42,11 +42,13 @@ Resources:
 
   ParkingManagementTask:
     Type: AWS::ECS::TaskDefinition
+    DependsOn:
+      - ParkingManagementTaskRole
     Properties:
       NetworkMode: awsvpc
       ContainerDefinitions:
-        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.5
-          Name: parking-management-image
+        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.6
+          Name: !Sub ${AWS::StackName}-parking-management-image
           Essential: true
           PortMappings:
             - ContainerPort: 8000
@@ -63,15 +65,16 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: api
 
-      Cpu: 1 vCPU
-      Memory: 2 GB
+      Cpu: .5 vCPU
+      Memory: 1 GB
       Family: !Sub "${AWS::StackName}-family"
       ExecutionRoleArn: arn:aws:iam::513758042129:role/ecsTaskExecutionRole
       TaskRoleArn: !GetAtt ParkingManagementTaskRole.Arn
       RuntimePlatform:
         OperatingSystemFamily: LINUX
       RequiresCompatibilities:
-        - "FARGATE"
+        - FARGATE
+        - EC2
 
   ParkingManagementTaskRole:
     Type: AWS::IAM::Role
@@ -104,14 +107,102 @@ Resources:
                   - !Ref DynamoTableArn
                   - !Sub "${DynamoTableArn}/index/*"
 
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: !Sub "${AWS::StackName}-dynamodb-access"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:DescribeTable
+                Resource:
+                  - !Ref DynamoTableArn
+                  - !Sub "${DynamoTableArn}/index/*"
+      ManagedPolicyArns:
+        # See reference: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-iam-awsmanpol.html#security-iam-awsmanpol-AmazonEC2ContainerServiceforEC2Role
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+        # This managed policy allows us to connect to the instance using SSM
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref EC2Role
+
+  ContainerHostSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Access to the EC2 hosts that run containers
+      VpcId:
+        Ref: VpcId
+
+  EC2LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    DependsOn:
+      - ParkingManagementCluster
+    Properties:
+      LaunchTemplateData:
+        ImageId: ami-0ced6a024bb18ff2e
+        InstanceType: t3.small
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        SecurityGroups:
+          - !Ref ContainerHostSecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash -xe
+             echo ECS_CLUSTER=${ParkingManagementCluster} >> /etc/ecs/ecs.config
+             yum install -y aws-cfn-bootstrap
+             /opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource ContainerInstances --configsets full_install --region ${AWS::Region} &
+        MetadataOptions:
+          HttpEndpoint: enabled
+
+  EC2ASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      MaxSize: "1"
+      MinSize: "1"
+      AutoScalingGroupName: !Sub ${AWS::StackName}-asg
+      DesiredCapacity: "1"
+      LaunchTemplate:
+        Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber
+        LaunchTemplateId: !Ref EC2LaunchTemplate
+
+  EC2CapacityProvider:
+    Type: AWS::ECS::CapacityProvider
+    Properties:
+      AutoScalingGroupProvider:
+        AutoScalingGroupArn: !GetAtt EC2ASG.AutoScalingGroupARN
+
   ParkingManagementCluster:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Sub "${AWS::StackName}-cluster"
       CapacityProviders:
         - FARGATE
-      DefaultCapacityProviderStrategy:
-        - CapacityProvider: FARGATE
+        - !Ref EC2CapacityProvider
 
   ParkingManagementECSSG:
     Type: AWS::EC2::SecurityGroup
@@ -157,6 +248,26 @@ Resources:
         - IpProtocol: "-1"
           CidrIpv6: ::/0
 
+  ParkingManagementServiceEC2:
+    Type: AWS::ECS::Service
+    DependsOn: ParkingManagementHTTPSListener
+    Properties:
+      Cluster: !GetAtt ParkingManagementCluster.Arn
+      LaunchType: EC2
+      ServiceName: !Sub "${AWS::StackName}-service"
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref ParkingManagementECSSG
+          Subnets: !Ref Subnets
+      TaskDefinition: !Ref ParkingManagementTask
+      DesiredCount: 1
+      LoadBalancers:
+        - ContainerName: parking-management-image
+          ContainerPort: 8000
+          TargetGroupArn: !Ref ParkingManagementTargetGroup
+
   ParkingManagementService:
     Type: AWS::ECS::Service
     DependsOn: ParkingManagementHTTPSListener
@@ -171,7 +282,7 @@ Resources:
             - !Ref ParkingManagementECSSG
           Subnets: !Ref Subnets
       TaskDefinition: !Ref ParkingManagementTask
-      DesiredCount: !Ref DesiredCount
+      DesiredCount: 0
       LoadBalancers:
         - ContainerName: parking-management-image
           ContainerPort: 8000
@@ -229,7 +340,7 @@ Resources:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
       MaxCapacity: 3
-      MinCapacity: 1
+      MinCapacity: 0
       ResourceId: !Sub
         - service/${ClusterName}/${ServiceName}
         - ClusterName: !Ref ParkingManagementCluster
@@ -251,13 +362,3 @@ Resources:
         TargetValue: 50.0
         ScaleInCooldown: 300
         ScaleOutCooldown: 300
-
-  ParkingManagementRecordSet:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      HostedZoneId: !Ref HostedZoneId
-      Name: !Ref HostedZoneUrl
-      Type: A
-      AliasTarget:
-        DNSName: !GetAtt ParkingManagementALB.DNSName
-        HostedZoneId: !GetAtt ParkingManagementALB.CanonicalHostedZoneID
