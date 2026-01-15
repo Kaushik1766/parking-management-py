@@ -32,6 +32,10 @@ Parameters:
     Type: String
     Description: Desired url for backend
     Default: 1337park-alb.kaushiksaha.me
+  ECSAMI:
+    Description: The Amazon Machine Image ID used for the cluster
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id
 
 Resources:
   ParkingManagementLogGroup:
@@ -157,6 +161,14 @@ Resources:
       GroupDescription: Access to the EC2 hosts that run containers
       VpcId:
         Ref: VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          SourceSecurityGroupId: !Ref ParkingManagementALBSG
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
 
   EC2LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -164,20 +176,42 @@ Resources:
       - ParkingManagementCluster
     Properties:
       LaunchTemplateData:
-        ImageId: ami-0ced6a024bb18ff2e
+        ImageId: !Ref ECSAMI
         InstanceType: t3.small
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
-        SecurityGroups:
+        SecurityGroupIds:
           - !Ref ContainerHostSecurityGroup
         UserData:
           Fn::Base64: !Sub |
-            #!/bin/bash -xe
-             echo ECS_CLUSTER=${ParkingManagementCluster} >> /etc/ecs/ecs.config
-             yum install -y aws-cfn-bootstrap
-             /opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource ContainerInstances --configsets full_install --region ${AWS::Region} &
+            #!/bin/bash
+            echo "ECS_CLUSTER=${AWS::StackName}-cluster" >> /etc/ecs/ecs.config
+          # Fn::Base64: !Sub |
+          #   #!/bin/bash -xe
+          #    echo ECS_CLUSTER=${ParkingManagementCluster} >> /etc/ecs/ecs.config
+          #    yum install -y aws-cfn-bootstrap
+          #    /opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource ContainerInstances --configsets full_install --region ${AWS::Region} &
         MetadataOptions:
           HttpEndpoint: enabled
+          
+  DynamoDBVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: 'Gateway'
+      VpcId: !Ref VpcId
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.dynamodb'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - 'dynamodb:*'
+            Resource:
+              - !Ref DynamoTableArn
+              - !Sub "${DynamoTableArn}/index/*"
+      RouteTableIds:
+        - rtb-0aa43051321d46638  
 
   EC2ASG:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -186,6 +220,7 @@ Resources:
       MinSize: "1"
       AutoScalingGroupName: !Sub ${AWS::StackName}-asg
       DesiredCapacity: "1"
+      VPCZoneIdentifier: !Ref Subnets
       LaunchTemplate:
         Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber
         LaunchTemplateId: !Ref EC2LaunchTemplate
@@ -200,9 +235,6 @@ Resources:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Sub "${AWS::StackName}-cluster"
-      CapacityProviders:
-        - FARGATE
-        - !Ref EC2CapacityProvider
 
   ParkingManagementECSSG:
     Type: AWS::EC2::SecurityGroup
@@ -250,27 +282,29 @@ Resources:
 
   ParkingManagementServiceEC2:
     Type: AWS::ECS::Service
-    DependsOn: ParkingManagementHTTPSListener
+    DependsOn: ParkingManagementHTTPListener
     Properties:
       Cluster: !GetAtt ParkingManagementCluster.Arn
       LaunchType: EC2
-      ServiceName: !Sub "${AWS::StackName}-service"
+      # CapacityProviderStrategy:
+      #   - CapacityProvider: !Ref EC2CapacityProvider
+      #     Weight: 1
+      ServiceName: !Sub "${AWS::StackName}-service-ec2"
       NetworkConfiguration:
         AwsvpcConfiguration:
-          AssignPublicIp: ENABLED
           SecurityGroups:
             - !Ref ParkingManagementECSSG
           Subnets: !Ref Subnets
       TaskDefinition: !Ref ParkingManagementTask
       DesiredCount: 1
       LoadBalancers:
-        - ContainerName: parking-management-image
+        - ContainerName: !Sub ${AWS::StackName}-parking-management-image
           ContainerPort: 8000
           TargetGroupArn: !Ref ParkingManagementTargetGroup
 
   ParkingManagementService:
     Type: AWS::ECS::Service
-    DependsOn: ParkingManagementHTTPSListener
+    DependsOn: ParkingManagementHTTPListener
     Properties:
       Cluster: !GetAtt ParkingManagementCluster.Arn
       LaunchType: FARGATE
@@ -284,7 +318,7 @@ Resources:
       TaskDefinition: !Ref ParkingManagementTask
       DesiredCount: 0
       LoadBalancers:
-        - ContainerName: parking-management-image
+        - ContainerName: !Sub ${AWS::StackName}-parking-management-image
           ContainerPort: 8000
           TargetGroupArn: !Ref ParkingManagementTargetGroup
 
@@ -315,26 +349,29 @@ Resources:
       Port: 80
       Protocol: HTTP
       DefaultActions:
-        - Type: redirect
-          RedirectConfig:
-            Protocol: HTTPS
-            Port: "443"
-            StatusCode: HTTP_301
-            Host: "#{host}"
-            Path: "/#{path}"
-            Query: "#{query}"
-
-  ParkingManagementHTTPSListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref ParkingManagementALB
-      Port: 443
-      Protocol: HTTPS
-      Certificates:
-        - CertificateArn: !Ref CertificateArn
-      DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref ParkingManagementTargetGroup
+      # DefaultActions:
+      #   - Type: redirect
+      #     RedirectConfig:
+      #       Protocol: HTTPS
+      #       Port: "443"
+      #       StatusCode: HTTP_301
+      #       Host: "#{host}"
+      #       Path: "/#{path}"
+      #       Query: "#{query}"
+
+  # ParkingManagementHTTPSListener:
+  #   Type: AWS::ElasticLoadBalancingV2::Listener
+  #   Properties:
+  #     LoadBalancerArn: !Ref ParkingManagementALB
+  #     Port: 443
+  #     Protocol: HTTPS
+  #     Certificates:
+  #       - CertificateArn: !Ref CertificateArn
+  #     DefaultActions:
+  #       - Type: forward
+  #         TargetGroupArn: !Ref ParkingManagementTargetGroup
 
   ParkingManagementScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
@@ -359,6 +396,6 @@ Resources:
         PredefinedMetricSpecification:
           PredefinedMetricType: ALBRequestCountPerTarget
           ResourceLabel: !Sub ${ParkingManagementALB.LoadBalancerFullName}/${ParkingManagementTargetGroup.TargetGroupFullName}
-        TargetValue: 50.0
-        ScaleInCooldown: 300
-        ScaleOutCooldown: 300
+        TargetValue: 1
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
