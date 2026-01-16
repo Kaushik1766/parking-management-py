@@ -45,7 +45,7 @@ Resources:
     Properties:
       NetworkMode: awsvpc
       ContainerDefinitions:
-        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.5
+        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.7
           Name: parking-management-image
           Essential: true
           PortMappings:
@@ -63,13 +63,14 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: api
 
-      Cpu: 1 vCPU
-      Memory: 2 GB
+      Cpu: .5 vCPU
+      Memory: 1 GB
       Family: !Sub "${AWS::StackName}-family"
       ExecutionRoleArn: arn:aws:iam::513758042129:role/ecsTaskExecutionRole
       TaskRoleArn: !GetAtt ParkingManagementTaskRole.Arn
       RuntimePlatform:
         OperatingSystemFamily: LINUX
+        CpuArchitecture: arm64
       RequiresCompatibilities:
         - "FARGATE"
 

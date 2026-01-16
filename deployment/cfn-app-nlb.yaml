@@ -55,13 +55,14 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: api
 
-      Cpu: 1 vCPU
-      Memory: 2 GB
+      Cpu: .5 vCPU
+      Memory: 1 GB
       Family: !Sub "${AWS::StackName}-family"
       ExecutionRoleArn: arn:aws:iam::513758042129:role/ecsTaskExecutionRole
       TaskRoleArn: !GetAtt ParkingManagementTaskRole.Arn
       RuntimePlatform:
         OperatingSystemFamily: LINUX
+        CpuArchitecture: arm64
       RequiresCompatibilities:
         - "FARGATE"
 
@@ -169,10 +170,10 @@ Resources:
           ContainerPort: 8000
           TargetGroupArn: !Ref ParkingManagementTargetGroup
 
-  ParkingManagementALB:
+  ParkingManagementNLB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: !Sub "${AWS::StackName}-alb"
+      Name: !Sub "${AWS::StackName}-nlb"
       Scheme: internet-facing
       Type: network
       Subnets: !Ref Subnets
@@ -244,4 +245,3 @@ Resources:
         TargetValue: 50.0
         ScaleInCooldown: 300
         ScaleOutCooldown: 300
-

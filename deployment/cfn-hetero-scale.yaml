@@ -35,7 +35,7 @@ Parameters:
   ECSAMI:
     Description: The Amazon Machine Image ID used for the cluster
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id
+    Default: /aws/service/ecs/optimized-ami/amazon-linux-2023/arm64/recommended/image_id
 
 Resources:
   ParkingManagementLogGroup:
@@ -51,7 +51,7 @@ Resources:
     Properties:
       NetworkMode: awsvpc
       ContainerDefinitions:
-        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.6
+        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.7
           Name: !Sub ${AWS::StackName}-parking-management-image
           Essential: true
           PortMappings:
@@ -76,6 +76,7 @@ Resources:
       TaskRoleArn: !GetAtt ParkingManagementTaskRole.Arn
       RuntimePlatform:
         OperatingSystemFamily: LINUX
+        CpuArchitecture: ARM64
       RequiresCompatibilities:
         - FARGATE
         - EC2
@@ -177,7 +178,7 @@ Resources:
     Properties:
       LaunchTemplateData:
         ImageId: !Ref ECSAMI
-        InstanceType: t3.small
+        InstanceType: t4g.small
         IamInstanceProfile:
           Name: !Ref EC2InstanceProfile
         SecurityGroupIds:
@@ -193,25 +194,25 @@ Resources:
           #    /opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource ContainerInstances --configsets full_install --region ${AWS::Region} &
         MetadataOptions:
           HttpEndpoint: enabled
-          
+
   DynamoDBVPCEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
-      VpcEndpointType: 'Gateway'
+      VpcEndpointType: "Gateway"
       VpcId: !Ref VpcId
-      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.dynamodb'
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
       PolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
-            Principal: '*'
+            Principal: "*"
             Action:
-              - 'dynamodb:*'
+              - "dynamodb:*"
             Resource:
               - !Ref DynamoTableArn
               - !Sub "${DynamoTableArn}/index/*"
       RouteTableIds:
-        - rtb-0aa43051321d46638  
+        - rtb-0aa43051321d46638
 
   EC2ASG:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -396,6 +397,6 @@ Resources:
         PredefinedMetricSpecification:
           PredefinedMetricType: ALBRequestCountPerTarget
           ResourceLabel: !Sub ${ParkingManagementALB.LoadBalancerFullName}/${ParkingManagementTargetGroup.TargetGroupFullName}
-        TargetValue: 1
+        TargetValue: 3
         ScaleInCooldown: 60
         ScaleOutCooldown: 60
