@@ -13,7 +13,7 @@ class TestBuildingRepository(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
         self.dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-        
+
         self.table = self.dynamodb.create_table(
             TableName=TABLE,
             KeySchema=[
@@ -26,9 +26,9 @@ class TestBuildingRepository(unittest.IsolatedAsyncioTestCase):
             ],
             BillingMode="PAY_PER_REQUEST",
         )
-        
+
         self.repo = BuildingRepository(db=self.dynamodb)
-        
+
     def tearDown(self):
         self.table.delete()
 
@@ -44,7 +44,7 @@ class TestBuildingRepository(unittest.IsolatedAsyncioTestCase):
             "AvailableSlots": 75,
         }
         self.table.put_item(Item=building_data)
-        
+
         result = await self.repo.get_building_by_id(building_id)
         
         self.assertIsInstance(result, Building)
@@ -56,7 +56,7 @@ class TestBuildingRepository(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_building_by_id_not_found(self):
         building_id = "nonexistent"
-        
+
         with self.assertRaises(WebException) as context:
             await self.repo.get_building_by_id(building_id)
         
@@ -80,7 +80,7 @@ class TestBuildingRepository(unittest.IsolatedAsyncioTestCase):
             "AvailableSlots": 45,
         }
         self.table.put_item(Item=building_data)
-        
+
         result = await self.repo.get_buildings()
         
         self.assertEqual(len(result), 1)
@@ -118,10 +118,10 @@ class TestBuildingRepository(unittest.IsolatedAsyncioTestCase):
                 "AvailableSlots": 30,
             }
         ]
-        
+
         for building in buildings:
             self.table.put_item(Item=building)
-        
+
         result = await self.repo.get_buildings()
         
         self.assertEqual(len(result), 3)
@@ -138,7 +138,7 @@ class TestBuildingRepository(unittest.IsolatedAsyncioTestCase):
             TotalSlots=0,
             AvailableSlots=0,
         )
-        
+
         await self.repo.add_building(building)
         
         response = self.table.get_item(
@@ -157,7 +157,7 @@ class TestBuildingRepository(unittest.IsolatedAsyncioTestCase):
             TotalSlots=0,
             AvailableSlots=0,
         )
-        
+
         await self.repo.add_building(building)
         
         with self.assertRaises(Exception):
@@ -171,7 +171,7 @@ class TestBuildingRepository(unittest.IsolatedAsyncioTestCase):
             TotalSlots=200,
             AvailableSlots=150,
         )
-        
+
         await self.repo.add_building(building)
         
         result = await self.repo.get_building_by_id("bldg777")

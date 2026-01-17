@@ -12,8 +12,8 @@ router = APIRouter()
 
 @router.get("/billing", tags=["billing"])
 async def get_bill(
-    month: int = Query(..., ge=1, le=12),
-    year: int = Query(..., ge=1970),
+    month: int = Query(ge=1, le=12),
+    year: int = Query(ge=2024),
     current_user: Annotated[UserJWT, Depends(get_user([Roles.CUSTOMER]))] = None,
     billing_service: Annotated[BillingService, Depends(BillingService)] = None,
 ):

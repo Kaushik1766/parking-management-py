@@ -1,11 +1,12 @@
 
+from typing import Type
 from functools import wraps
 from typing import cast
 
 from httpx import get
 
 
-def singleton(cls_: type):
+def singleton(cls_: Type):
     instance = None
     initialized = False
 
@@ -21,7 +22,7 @@ def singleton(cls_: type):
         def __new__(cls, *args, **kwargs):
             nonlocal instance
             if instance is None:
-                instance = super(wrapper, cls).__new__(cls)
+                instance = super(wrapper, cls).__new__(cls, *args, **kwargs)
             return instance
 
         @wraps(cls_.__init__)

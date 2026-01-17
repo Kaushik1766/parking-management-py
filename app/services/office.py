@@ -12,7 +12,6 @@ from app.repository.office_repo import OfficeRepository
 from app.repository.floor_repo import FloorRepository
 from app.utils.singleton import singleton
 
-@singleton
 class OfficeService:
     def __init__(
             self,

@@ -22,3 +22,10 @@ dependencies = [
     "ruff>=0.14.10",
     "types-boto3>=1.42.18",
 ]
+
+[dependency-groups]
+dev = [
+    "pyrefly>=0.47.0",
+    "pyright>=1.1.407",
+    "pytest-cov>=7.0.0",
+]

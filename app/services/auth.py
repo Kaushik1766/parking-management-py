@@ -1,3 +1,4 @@
+from app.constants import JWT_ALGORITHM
 import uuid
 import datetime
 import jwt
@@ -6,6 +7,7 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException
 
+from app.constants import JWT_SECRET
 from app.dto.register import RegisterDTO
 from app.errors.web_exception import UNAUTHORIZED_ERROR, WebException
 from app.models.roles import Roles
@@ -14,7 +16,6 @@ from app.repository.user_repo import UserRepository
 from app.dto.login import LoginDTO
 from app.utils.singleton import singleton
 
-@singleton
 class AuthService:
     def __init__(self, repo: Annotated[UserRepository, Depends(UserRepository)]):
         self.repo = repo
@@ -36,8 +37,8 @@ class AuthService:
                 "exp": datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=1),
                 "iat": datetime.datetime.now(tz=datetime.timezone.utc),
             },
-            "asdfasasdfasdf",
-            algorithm="HS256",
+            JWT_SECRET,
+            algorithm=JWT_ALGORITHM,
         )
         return token
 

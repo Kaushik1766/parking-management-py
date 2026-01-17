@@ -12,7 +12,7 @@ class TestOfficeRepository(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
         self.dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-        
+
         self.table = self.dynamodb.create_table(
             TableName=TABLE,
             KeySchema=[
@@ -25,7 +25,7 @@ class TestOfficeRepository(unittest.IsolatedAsyncioTestCase):
             ],
             BillingMode="PAY_PER_REQUEST",
         )
-        
+
         self.repo = OfficeRepository(db=self.dynamodb)
         
         self.building_id = "bldg001"
@@ -221,3 +221,4 @@ class TestOfficeRepository(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

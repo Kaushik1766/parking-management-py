@@ -16,7 +16,7 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
         self.dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-        
+
         self.table = self.dynamodb.create_table(
             TableName=TABLE,
             KeySchema=[
@@ -29,15 +29,15 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             ],
             BillingMode="PAY_PER_REQUEST",
         )
-        
+
         self.repo = ParkingRepository(db=self.dynamodb)
-        
+
         self.user_id = "user001"
         self.building_id = "bldg001"
         self.floor_number = 1
         self.slot_id = 5
         self.numberplate = "ABC123"
-        
+
         self.table.put_item(Item={
             "PK": f"USER#{self.user_id}",
             "SK": "PROFILE",
@@ -48,7 +48,7 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             "OfficeId": "office001",
             "Role": Roles.CUSTOMER,
         })
-        
+
         self.table.put_item(Item={
             "PK": f"USER#{self.user_id}",
             "SK": f"VEHICLE#{self.numberplate}",
@@ -57,7 +57,7 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             "VehicleType": "TwoWheeler",
             "IsParked": False,
         })
-        
+
         self.table.put_item(Item={
             "PK": "BUILDING",
             "SK": f"BUILDING#{self.building_id}",
@@ -67,7 +67,7 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             "TotalSlots": 30,
             "AvailableSlots": 30,
         })
-        
+
         self.table.put_item(Item={
             "PK": f"BUILDING#{self.building_id}",
             "SK": f"FLOORINFO#{self.floor_number}",
@@ -75,7 +75,7 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             "TotalSlots": 30,
             "AvailableSlots": 30,
         })
-        
+
         self.table.put_item(Item={
             "PK": f"BUILDING#{self.building_id}",
             "SK": f"FLOOR#{self.floor_number}#SLOT#{self.slot_id}",
@@ -84,7 +84,7 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             "IsOccupied": False,
             "IsAssigned": False,
         })
-        
+
     def tearDown(self):
         self.table.delete()
 
@@ -100,9 +100,9 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             parking_id="parking001",
             vehicle_type="TwoWheeler"
         )
-        
+
         await self.repo.add_parking(parking)
-        
+
         parking_response = self.table.get_item(
             Key={
                 "PK": f"USER#{self.user_id}",
@@ -126,9 +126,9 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             parking_id="parking002",
             vehicle_type="TwoWheeler"
         )
-        
+
         await self.repo.add_parking(parking)
-        
+
         vehicle_response = self.table.get_item(
             Key={
                 "PK": f"USER#{self.user_id}",
@@ -149,9 +149,9 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             parking_id="parking003",
             vehicle_type="TwoWheeler"
         )
-        
+
         await self.repo.add_parking(parking)
-        
+
         slot_response = self.table.get_item(
             Key={
                 "PK": f"BUILDING#{self.building_id}",
@@ -175,9 +175,9 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             parking_id="parking004",
             vehicle_type="TwoWheeler"
         )
-        
+
         await self.repo.add_parking(parking)
-        
+
         floor_response = self.table.get_item(
             Key={
                 "PK": f"BUILDING#{self.building_id}",
@@ -185,7 +185,7 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             }
         )
         self.assertEqual(floor_response["Item"]["AvailableSlots"], 29)
-        
+
         building_response = self.table.get_item(
             Key={"PK": "BUILDING", "SK": f"BUILDING#{self.building_id}"}
         )
@@ -202,10 +202,10 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             parking_id="parking005",
             vehicle_type="TwoWheeler"
         )
-        
+
         with self.assertRaises(WebException) as context:
             await self.repo.add_parking(parking)
-        
+
         self.assertEqual(context.exception.status_code, 404)
 
     async def test_unpark_by_numberplate_success(self):
@@ -221,9 +221,9 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             vehicle_type="TwoWheeler"
         )
         await self.repo.add_parking(parking)
-        
+
         await self.repo.unpark_by_numberplate(self.user_id, self.numberplate)
-        
+
         parking_response = self.table.get_item(
             Key={
                 "PK": f"USER#{self.user_id}",
@@ -246,9 +246,9 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             vehicle_type="TwoWheeler"
         )
         await self.repo.add_parking(parking)
-        
+
         await self.repo.unpark_by_numberplate(self.user_id, self.numberplate)
-        
+
         vehicle_response = self.table.get_item(
             Key={
                 "PK": f"USER#{self.user_id}",
@@ -270,9 +270,9 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             vehicle_type="TwoWheeler"
         )
         await self.repo.add_parking(parking)
-        
+
         await self.repo.unpark_by_numberplate(self.user_id, self.numberplate)
-        
+
         slot_response = self.table.get_item(
             Key={
                 "PK": f"BUILDING#{self.building_id}",
@@ -296,9 +296,9 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             vehicle_type="TwoWheeler"
         )
         await self.repo.add_parking(parking)
-        
+
         await self.repo.unpark_by_numberplate(self.user_id, self.numberplate)
-        
+
         floor_response = self.table.get_item(
             Key={
                 "PK": f"BUILDING#{self.building_id}",
@@ -306,7 +306,7 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             }
         )
         self.assertEqual(floor_response["Item"]["AvailableSlots"], 30)
-        
+
         building_response = self.table.get_item(
             Key={"PK": "BUILDING", "SK": f"BUILDING#{self.building_id}"}
         )
@@ -315,7 +315,7 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
     async def test_unpark_no_active_parking_raises_error(self):
         with self.assertRaises(WebException) as context:
             await self.repo.unpark_by_numberplate(self.user_id, self.numberplate)
-        
+
         self.assertEqual(context.exception.status_code, 404)
         self.assertIn("No active parking", context.exception.message)
 
@@ -324,7 +324,7 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
         end_time1 = 1700010000
         start_time2 = 1700020000
         end_time2 = 1700030000
-        
+
         self.table.put_item(Item={
             "PK": f"USER#{self.user_id}",
             "SK": f"PARKING#{start_time1}",
@@ -337,7 +337,7 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             "ParkingId": "parking010",
             "VehicleType": "TwoWheeler",
         })
-        
+
         self.table.put_item(Item={
             "PK": f"USER#{self.user_id}",
             "SK": f"PARKING#{start_time2}",
@@ -350,13 +350,13 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             "ParkingId": "parking011",
             "VehicleType": "TwoWheeler",
         })
-        
+
         result = await self.repo.get_parking_history(
             self.user_id,
             start_time1,
             start_time2 + 1
         )
-        
+
         self.assertEqual(len(result), 2)
         self.assertIsInstance(result[0], ParkingHistory)
         self.assertIsInstance(result[1], ParkingHistory)
@@ -367,13 +367,13 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             1600000000,
             1600100000
         )
-        
+
         self.assertEqual(len(result), 0)
 
     async def test_get_parking_history_filters_active_parking(self):
         completed_time = 1700000000
         active_time = 1700020000
-        
+
         self.table.put_item(Item={
             "PK": f"USER#{self.user_id}",
             "SK": f"PARKING#{completed_time}",
@@ -386,7 +386,7 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             "ParkingId": "parking012",
             "VehicleType": "TwoWheeler",
         })
-        
+
         self.table.put_item(Item={
             "PK": f"USER#{self.user_id}",
             "SK": f"PARKING#{active_time}",
@@ -398,13 +398,13 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
             "ParkingId": "parking013",
             "VehicleType": "TwoWheeler",
         })
-        
+
         result = await self.repo.get_parking_history(
             self.user_id,
             completed_time,
             active_time + 1
         )
-        
+
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].start_time, completed_time)
 

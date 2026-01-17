@@ -1,8 +1,10 @@
+from functools import lru_cache
 from typing import Annotated, Dict
 
 from fastapi import Depends
 from starlette import status
 
+from app.constants import BILL_NOT_GENERATED_MESSAGE
 from app.dto.billing import BillParkingHistoryDTO, BillResponseDTO
 from app.errors.web_exception import DB_ERROR, WebException
 from app.models.bill import Bill
@@ -11,7 +13,6 @@ from app.repository.building_repo import BuildingRepository
 from app.utils.singleton import singleton
 
 
-@singleton
 class BillingService:
     def __init__(
         self,
@@ -21,18 +22,15 @@ class BillingService:
         self.billing_repo = billing_repo
         self.building_repo = building_repo
 
-    async def _get_building_name(self, building_id: str, cache: Dict[str, str]) -> str:
-        if building_id in cache:
-            return cache[building_id]
+    @lru_cache(maxsize=128)
+    async def _get_building_name(self, building_id: str) -> str:
         building = await self.building_repo.get_building_by_id(building_id)
-        cache[building_id] = building.name
         return building.name
 
     async def _bill_to_response(self, *, bill: Bill, user_email: str) -> BillResponseDTO:
-        cache: Dict[str, str] = {}
         history: list[BillParkingHistoryDTO] = []
         for item in bill.parking_history:
-            building_name = await self._get_building_name(item.building_id, cache)
+            building_name = await self._get_building_name(item.building_id)
             history.append(
                 BillParkingHistoryDTO.from_raw(
                     ticket_id=item.ticket_id,
@@ -62,7 +60,7 @@ class BillingService:
         if bill is None:
             raise WebException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                message="Bill not generated for this month",
+                message=BILL_NOT_GENERATED_MESSAGE,
                 error_code=DB_ERROR,
             )
 

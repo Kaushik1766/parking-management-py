@@ -12,7 +12,7 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
         self.dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-        
+
         self.table = self.dynamodb.create_table(
             TableName=TABLE,
             KeySchema=[
@@ -25,17 +25,17 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             ],
             BillingMode="PAY_PER_REQUEST",
         )
-        
+
         self.repo = VehicleRepository(db=self.dynamodb)
-        
+
         self.user_id = "user001"
-        
+
     def tearDown(self):
         self.table.delete()
 
     async def test_get_vehicles_by_user_id_empty(self):
         result = await self.repo.get_vehicles_by_user_id(self.user_id)
-        
+
         self.assertIsInstance(result, list)
         self.assertEqual(len(result), 0)
 
@@ -48,9 +48,9 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             "VehicleType": VehicleType.TWO_WHEELER,
             "IsParked": False,
         })
-        
+
         result = await self.repo.get_vehicles_by_user_id(self.user_id)
-        
+
         self.assertEqual(len(result), 1)
         self.assertIsInstance(result[0], Vehicle)
         self.assertEqual(result[0].vehicle_id, "vehicle001")
@@ -85,12 +85,12 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
                 "IsParked": False,
             }
         ]
-        
+
         for vehicle in vehicles:
             self.table.put_item(Item=vehicle)
-        
+
         result = await self.repo.get_vehicles_by_user_id(self.user_id)
-        
+
         self.assertEqual(len(result), 3)
         numberplates = [v.number_plate for v in result]
         self.assertIn("CAR001", numberplates)
@@ -103,7 +103,7 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             "FloorNumber": 2,
             "SlotId": 10,
         }
-        
+
         self.table.put_item(Item={
             "PK": f"USER#{self.user_id}",
             "SK": "VEHICLE#XYZ789",
@@ -113,9 +113,9 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             "IsParked": True,
             "AssignedSlot": assigned_slot,
         })
-        
+
         result = await self.repo.get_vehicles_by_user_id(self.user_id)
-        
+
         self.assertEqual(len(result), 1)
         vehicle = result[0]
         self.assertIsNotNone(vehicle.assigned_slot)
@@ -132,9 +132,9 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             "VehicleType": VehicleType.FOUR_WHEELER,
             "IsParked": False,
         })
-        
+
         result = await self.repo.get_vehicle_by_number_plate(self.user_id, "TEST123")
-        
+
         self.assertIsNotNone(result)
         self.assertIsInstance(result, Vehicle)
         self.assertEqual(result.number_plate, "TEST123")
@@ -142,7 +142,7 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_vehicle_by_number_plate_not_found(self):
         result = await self.repo.get_vehicle_by_number_plate(self.user_id, "NONEXISTENT")
-        
+
         self.assertIsNone(result)
 
     async def test_get_vehicle_by_number_plate_wrong_user(self):
@@ -154,9 +154,9 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             "VehicleType": VehicleType.TWO_WHEELER,
             "IsParked": False,
         })
-        
+
         result = await self.repo.get_vehicle_by_number_plate("wrong_user", "PRIVATE")
-        
+
         self.assertIsNone(result)
 
     async def test_save_vehicle_success(self):
@@ -167,9 +167,9 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             IsParked=False,
             AssignedSlot=None
         )
-        
+
         await self.repo.save_vehicle(vehicle, self.user_id)
-        
+
         response = self.table.get_item(
             Key={
                 "PK": f"USER#{self.user_id}",
@@ -188,7 +188,7 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             FloorNumber=3,
             SlotId=15
         )
-        
+
         vehicle = Vehicle(
             VehicleId="vehicle008",
             Numberplate="ASSIGNED",
@@ -196,9 +196,9 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             IsParked=False,
             AssignedSlot=assigned_slot
         )
-        
+
         await self.repo.save_vehicle(vehicle, self.user_id)
-        
+
         response = self.table.get_item(
             Key={
                 "PK": f"USER#{self.user_id}",
@@ -217,9 +217,9 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             IsParked=False,
             AssignedSlot=None
         )
-        
+
         await self.repo.save_vehicle(vehicle, self.user_id)
-        
+
         with self.assertRaises(Exception):
             await self.repo.save_vehicle(vehicle, self.user_id)
 
@@ -232,9 +232,9 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             "VehicleType": VehicleType.TWO_WHEELER,
             "IsParked": False,
         })
-        
+
         await self.repo.delete_vehicle(self.user_id, "DELETE")
-        
+
         response = self.table.get_item(
             Key={
                 "PK": f"USER#{self.user_id}",
@@ -256,14 +256,14 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             "VehicleType": VehicleType.TWO_WHEELER,
             "IsParked": False,
         })
-        
+
         with self.assertRaises(Exception):
             await self.repo.delete_vehicle("wrong_user", "OWNED")
 
     async def test_vehicle_isolation_between_users(self):
         user1 = "user001"
         user2 = "user002"
-        
+
         self.table.put_item(Item={
             "PK": f"USER#{user1}",
             "SK": "VEHICLE#SHARED",
@@ -272,7 +272,7 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             "VehicleType": VehicleType.TWO_WHEELER,
             "IsParked": False,
         })
-        
+
         self.table.put_item(Item={
             "PK": f"USER#{user2}",
             "SK": "VEHICLE#SHARED",
@@ -281,10 +281,10 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
             "VehicleType": VehicleType.FOUR_WHEELER,
             "IsParked": True,
         })
-        
+
         vehicles_user1 = await self.repo.get_vehicles_by_user_id(user1)
         vehicles_user2 = await self.repo.get_vehicles_by_user_id(user2)
-        
+
         self.assertEqual(len(vehicles_user1), 1)
         self.assertEqual(len(vehicles_user2), 1)
         self.assertEqual(vehicles_user1[0].vehicle_type, VehicleType.TWO_WHEELER)
