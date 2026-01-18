@@ -1,3 +1,4 @@
+from botocore.exceptions import ClientError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi import status
 from fastapi.exceptions import ValidationException
@@ -19,7 +20,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://1337park.kaushiksaha.me"],
+    allow_origins=["https://1337park.kaushiksaha.me", "http://localhost:4200"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,12 +35,24 @@ def http_exception_handler(request: Request, exc: HTTPException):
     )
 
 
-# @app.exception_handler(Exception)
-# def exception_handler(request: Request, exc: Exception):
-#     return JSONResponse(
-#         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#         content={"message": "Internal Server Error", "code": UNEXPECTED_ERROR},
-#     )
+@app.exception_handler(ClientError)
+def exception_handler(request: Request, exc: ClientError):
+    
+    if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"message": "Resource already exists", "code": UNEXPECTED_ERROR},
+        )
+    elif exc.response["Error"]["Code"] == "TransactionCanceledException":
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"message": "Transaction canceled due to conflict", "code": UNEXPECTED_ERROR},
+        )
+    else: 
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"message": "Internal Server Error", "code": UNEXPECTED_ERROR},
+        )
 
 
 @app.exception_handler(WebException)

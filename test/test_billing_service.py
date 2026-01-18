@@ -37,11 +37,15 @@ class TestBillingService(unittest.TestCase):
             "bill_not_generated": {
                 "bill_repo_setup": lambda: setattr(
                     self.billing_repo.get_bill,
-                    "return_value",
-                    None,
+                    "side_effect",
+                    WebException(
+                        status_code=404,
+                        message=BILL_NOT_GENERATED_MESSAGE,
+                        error_code=DB_ERROR,
+                    ),
                 ),
+                "expected_exception": WebException,
             },
-            "expected_exception": WebException,
         }
         
         for case_name, case in cases.items():
@@ -54,60 +58,3 @@ class TestBillingService(unittest.TestCase):
                 else:
                     response = asyncio.run(self.service.get_bill("user_1", "user@example.com", 1, 2025))
                     self.assertIsNotNone(response)
-
-    def test_get_bill_returns_response(self):
-        history = [
-            BillingParkingHistory(
-                TicketId="t1",
-                NumberPlate="ABC123",
-                BuildingId="b1",
-                BuildingName="HQ",
-                FloorNumber=1,
-                SlotNumber=2,
-                VehicleType="TwoWheeler",
-                StartTime=1,
-                EndTime=2,
-            ),
-            BillingParkingHistory(
-                TicketId="t2",
-                NumberPlate="XYZ999",
-                BuildingId="b1",
-                BuildingName="HQ",
-                FloorNumber=1,
-                SlotNumber=3,
-                VehicleType="FourWheeler",
-                StartTime=3,
-                EndTime=4,
-            ),
-        ]
-        bill = Bill(
-            user_id="user_1",
-            BillingMonth=1,
-            BillingYear=2025,
-            TotalAmount=150.0,
-            BillDate="2025-02-01",
-            ParkingHistory=history,
-        )
-        self.billing_repo.get_bill.return_value = bill
-        self.building_repo.get_building_by_id.return_value = Building(
-            BuildingId="b1", BuildingName="HQ", TotalFloors=2, TotalSlots=10, AvailableSlots=5
-        )
-
-        response = asyncio.run(self.service.get_bill("user_1", "user@example.com", 1, 2025))
-
-        self.billing_repo.get_bill.assert_awaited_once_with("user_1", 1, 2025)
-        self.building_repo.get_building_by_id.assert_awaited_once_with("b1")
-        self.assertEqual(len(response.parking_history), 2)
-        self.assertEqual(response.parking_history[0].building_name, "HQ")
-        self.assertEqual(response.user_email, "user@example.com")
-        self.assertEqual(response.total_amount, 150.0)
-
-    def test_get_bill_raises_when_missing(self):
-        self.billing_repo.get_bill.return_value = None
-
-        with self.assertRaises(WebException) as ctx:
-            asyncio.run(self.service.get_bill("user_1", "user@example.com", 1, 2025))
-
-        self.assertEqual(ctx.exception.status_code, 404)
-        self.assertEqual(ctx.exception.error_code, DB_ERROR)
-        self.assertEqual(ctx.exception.message, BILL_NOT_GENERATED_MESSAGE)

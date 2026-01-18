@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import AsyncMock, Mock
 from fastapi.testclient import TestClient
 
-from app.constants import BILL_NOT_GENERATED_MESSAGE, JWT_SECRET
+from app.constants import BILL_NOT_GENERATED_MESSAGE, JWT_ALGORITHM, JWT_SECRET
 from app.errors.web_exception import DB_ERROR, WebException
 from app.main import app
 from app.models.roles import Roles
@@ -34,7 +34,7 @@ class TestBillingRouter(unittest.TestCase):
                 "iat": now,
             },
             JWT_SECRET,
-            algorithm="HS256",
+            algorithm=JWT_ALGORITHM,
         )
         return {"Authorization": f"Bearer {token}"}
 

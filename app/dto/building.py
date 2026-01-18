@@ -37,4 +37,5 @@ class SlotResponseDTO(BaseModel):
     slot_number: int = Field(alias="slotNumber")
     slot_type: str = Field(alias="slotType")
     is_assigned: bool = Field(alias="isAssigned")
+    is_occupied: bool = Field(alias="isOccupied")
     parking_status: ParkingStatusResponseDTO | None = Field(default=None, alias="parkingStatus")

@@ -1,3 +1,4 @@
+from starlette import status
 from mypy_boto3_dynamodb.type_defs import TransactWriteItemTypeDef
 from mypy_boto3_dynamodb.type_defs import UpdateItemInputTypeDef
 import boto3
@@ -11,6 +12,7 @@ from mypy_boto3_dynamodb.service_resource import DynamoDBServiceResource
 
 from app.constants import TABLE
 from app.dependencies import get_db
+from app.errors.web_exception import WebException
 from app.models.office import Office
 
 class OfficeRepository:
@@ -59,7 +61,7 @@ class OfficeRepository:
             )
         except self.table.meta.client.exceptions.TransactionCanceledException as e:
             print(e.response.get("CancellationReasons"))
-            raise Exception("Office creation failed due to conflict") from e
+            raise WebException(status_code=status.HTTP_409_CONFLICT, message="Office already exists on floor", error_code="OFFICE_EXISTS")
 
     async def get_office_by_id(self, office_id: str)->Office:
         office_item = await to_thread(

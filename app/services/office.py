@@ -37,7 +37,6 @@ class OfficeService:
         ]
 
     async def add_office(self, building_id: str, req: AddOfficeRequestDTO):
-        # ensure building and floor exist
         await self.building_repo.get_building_by_id(building_id)
         floors = await self.floor_repo.get_floors(building_id)
         if not any(f.floor_number == req.floor_number for f in floors):
@@ -55,7 +54,6 @@ class OfficeService:
         return office.office_id
 
     async def delete_office(self, building_id: str, office_id: str):
-        # lookup office to validate and get floor
         office = await self.office_repo.get_office_by_id(office_id)
         if office.building_id != building_id:
             raise WebException(status_code=status.HTTP_404_NOT_FOUND, message="Office not found", error_code=DB_ERROR)

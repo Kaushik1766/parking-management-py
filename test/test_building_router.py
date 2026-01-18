@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import AsyncMock
 from fastapi.testclient import TestClient
 
+from app.constants import JWT_ALGORITHM, JWT_SECRET
 from app.main import app
 from app.models.roles import Roles
 from app.services.building import BuildingService
@@ -34,8 +35,8 @@ class TestBuildingRouter(unittest.TestCase):
                 "exp": now + 3600,
                 "iat": now,
             },
-            "asdfasasdfasdf",
-            algorithm="HS256",
+            JWT_SECRET,
+            algorithm=JWT_ALGORITHM,
         )
         return {"Authorization": f"Bearer {token}"}
 

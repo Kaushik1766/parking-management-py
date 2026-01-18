@@ -5,7 +5,7 @@ import jwt
 import bcrypt
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends
 
 from app.constants import JWT_SECRET
 from app.dto.register import RegisterDTO
