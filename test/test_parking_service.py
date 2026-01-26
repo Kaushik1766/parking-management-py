@@ -123,3 +123,12 @@ class TestParkingService(unittest.TestCase):
         asyncio.run(self.service.unpark("user_1", "ABC123"))
 
         self.parking_repo.unpark_by_numberplate.assert_awaited_once_with("user_1", "ABC123")
+
+    def test_unpark_validation_error(self):
+        from pydantic_core import ValidationError as CoreValidationError
+        self.parking_repo.unpark_by_numberplate.side_effect = CoreValidationError.from_exception_data(
+            "test", [{"type": "missing", "loc": ("field",), "input": {}}]
+        )
+
+        with self.assertRaises(CoreValidationError):
+            asyncio.run(self.service.unpark("user_1", "ABC123"))

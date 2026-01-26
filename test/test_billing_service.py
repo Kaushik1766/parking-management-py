@@ -34,15 +34,48 @@ class TestBillingService(unittest.TestCase):
                 ),
                 "expected_exception": None,
             },
+            "bill_with_parking_history": {
+                "bill_repo_setup": lambda: setattr(
+                    self.billing_repo.get_bill,
+                    "return_value",
+                    Bill(
+                        user_id="user_1",
+                        BillingMonth=1,
+                        BillingYear=2024,
+                        TotalAmount=150.0,
+                        BillDate="2024-02-01",
+                        ParkingHistory=[
+                            BillingParkingHistory(
+                                TicketId="ticket_1",
+                                NumberPlate="ABC123",
+                                BuildingId="b1",
+                                BuildingName="HQ Tower",
+                                FloorNumber=1,
+                                SlotNumber=5,
+                                StartTime=1640000000,
+                                EndTime=1640010000,
+                                VehicleType="FOUR_WHEELER",
+                            )
+                        ],
+                    ),
+                ),
+                "building_repo_setup": lambda: setattr(
+                    self.building_repo.get_building_by_id,
+                    "return_value",
+                    Building(
+                        BuildingId="b1",
+                        BuildingName="HQ Tower",
+                        TotalFloors=5,
+                        AvailableSlots=100,
+                    ),
+                ),
+                "expected_exception": None,
+            },
             "bill_not_generated": {
                 "bill_repo_setup": lambda: setattr(
                     self.billing_repo.get_bill,
-                    "side_effect",
-                    WebException(
-                        status_code=404,
-                        message=BILL_NOT_GENERATED_MESSAGE,
-                        error_code=DB_ERROR,
-                    ),
+                    "return_value",
+                    None,
                 ),
                 "expected_exception": WebException,
             },
@@ -51,6 +84,8 @@ class TestBillingService(unittest.TestCase):
         for case_name, case in cases.items():
             with self.subTest(case=case_name):
                 case["bill_repo_setup"]()
+                if case.get("building_repo_setup"):
+                    case["building_repo_setup"]()
                 
                 if case.get('expected_exception'):
                     with self.assertRaises(WebException) as ctx:

@@ -1,10 +1,14 @@
 import unittest
 import boto3
+from types import SimpleNamespace
+from unittest.mock import Mock
 from moto import mock_aws
+from starlette import status
 
 from app.repository.office_repo import OfficeRepository
 from app.models.office import Office
 from app.constants import TABLE
+from app.errors.web_exception import WebException
 
 
 @mock_aws
@@ -217,6 +221,38 @@ class TestOfficeRepository(unittest.IsolatedAsyncioTestCase):
         
         with self.assertRaises(Exception):
             await self.repo.delete_office(self.building_id, 999, "office011")
+
+
+        class TestOfficeRepositoryWithMocks(unittest.IsolatedAsyncioTestCase):
+
+            async def test_add_office_transaction_cancelled(self):
+                mock_db = Mock()
+                mock_table = Mock()
+
+                class TxnCancelled(Exception):
+                    def __init__(self):
+                        super().__init__("txn cancelled")
+                        self.response = {"CancellationReasons": ["duplicate"]}
+
+                mock_client = Mock()
+                mock_client.exceptions = SimpleNamespace(TransactionCanceledException=TxnCancelled)
+                mock_client.transact_write_items.side_effect = TxnCancelled()
+
+                mock_table.meta = SimpleNamespace(client=mock_client)
+                mock_db.Table.return_value = mock_table
+
+                repo = OfficeRepository(db=mock_db)
+                office = Office(
+                    office_name="Dup Office",
+                    building_id="B1",
+                    floor_number=1,
+                    office_id="OFF-1",
+                )
+
+                with self.assertRaises(WebException) as exc:
+                    await repo.add_office(office)
+
+                self.assertEqual(exc.exception.status_code, status.HTTP_409_CONFLICT)
 
 
 if __name__ == "__main__":

@@ -1,10 +1,12 @@
 import unittest
 import boto3
+from unittest.mock import Mock
 from moto import mock_aws
 
 from app.repository.vehicle_repo import VehicleRepository
 from app.models.vehicle import Vehicle, VehicleType, AssignedSlot
 from app.constants import TABLE
+from app.errors.web_exception import WebException
 
 
 @mock_aws
@@ -289,6 +291,23 @@ class TestVehicleRepository(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(vehicles_user2), 1)
         self.assertEqual(vehicles_user1[0].vehicle_type, VehicleType.TWO_WHEELER)
         self.assertEqual(vehicles_user2[0].vehicle_type, VehicleType.FOUR_WHEELER)
+
+
+class TestVehicleRepositoryWithMocks(unittest.IsolatedAsyncioTestCase):
+
+    async def test_delete_vehicle_blocks_when_parking_active(self):
+        mock_db = Mock()
+        mock_table = Mock()
+        mock_table.query.return_value = {"Items": [{"PK": "USER#userX", "SK": "PARKING#1"}]}
+        mock_db.Table.return_value = mock_table
+
+        repo = VehicleRepository(db=mock_db)
+
+        with self.assertRaises(WebException) as exc:
+            await repo.delete_vehicle("userX", "ABC123")
+
+        self.assertEqual(exc.exception.status_code, 400)
+        mock_table.delete_item.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -1,7 +1,10 @@
 import unittest
 import boto3
 import time
+from types import SimpleNamespace
+from unittest.mock import Mock
 from moto import mock_aws
+from starlette import status
 
 from app.repository.parking_repo import ParkingRepository
 from app.models.parking_history import ParkingHistory
@@ -407,6 +410,67 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].start_time, completed_time)
+
+
+class TestParkingRepositoryWithMocks(unittest.IsolatedAsyncioTestCase):
+
+    async def test_add_parking_transaction_conflict(self):
+        mock_db = Mock()
+        mock_table = Mock()
+
+        user_item = {
+            "Item": {
+                "Id": "user-mock",
+                "Username": "mockuser",
+                "Email": "mock@example.com",
+                "PasswordHash": "pw",
+                "OfficeId": "office",
+                "Role": Roles.CUSTOMER,
+            }
+        }
+        mock_table.get_item.return_value = user_item
+
+        class TxnCancelled(Exception):
+            def __init__(self):
+                super().__init__("txn cancelled")
+                self.response = {"CancellationReasons": ["conflict"]}
+
+        mock_client = Mock()
+        mock_client.exceptions = SimpleNamespace(TransactionCanceledException=TxnCancelled)
+        mock_client.transact_write_items.side_effect = TxnCancelled()
+        mock_table.meta = SimpleNamespace(client=mock_client)
+
+        mock_db.Table.return_value = mock_table
+
+        repo = ParkingRepository(db=mock_db)
+        parking = ParkingHistory(
+            user_id="user-mock",
+            Numberplate="ABC123",
+            BuildingId="B1",
+            FloorNumber=1,
+            SlotId=2,
+            StartTime=111,
+            ParkingId="p-1",
+            VehicleType="TwoWheeler",
+        )
+
+        with self.assertRaises(WebException) as exc:
+            await repo.add_parking(parking)
+
+        self.assertEqual(exc.exception.status_code, status.HTTP_409_CONFLICT)
+
+    async def test_get_parking_history_validation_error(self):
+        mock_db = Mock()
+        mock_table = Mock()
+        mock_table.query.return_value = {"Items": [{"StartTime": "invalid"}]}
+        mock_db.Table.return_value = mock_table
+
+        repo = ParkingRepository(db=mock_db)
+
+        with self.assertRaises(WebException) as exc:
+            await repo.get_parking_history("user-mock", 1, 2)
+
+        self.assertEqual(exc.exception.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 if __name__ == "__main__":

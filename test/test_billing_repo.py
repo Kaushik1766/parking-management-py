@@ -142,6 +142,18 @@ class TestBillingRepository(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(result)
         self.assertEqual(len(result.parking_history), 2)
         self.assertEqual(result.total_amount, 300.75)
+    
+    async def test_get_bill_returns_none_when_no_item(self):
+        """Test that get_bill returns None when bill doesn't exist"""
+        user_id = "user_nonexistent"
+        month = 1
+        year = 2024
+        
+        # Don't add any bill to the table
+        bill = await self.repo.get_bill(user_id, month, year)
+        
+        # Should return None for non-existent bill
+        self.assertIsNone(bill)
 
 
 if __name__ == "__main__":

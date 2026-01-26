@@ -124,6 +124,7 @@ class BuildingService:
                     slotNumber=slot.slot_id,
                     slotType=slot.slot_type.value,
                     isAssigned=slot.is_assigned,
+                    isOccupied=slot.is_occupied,
                     parkingStatus=parking_status,
                 )
             )

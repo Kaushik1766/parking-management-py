@@ -27,6 +27,19 @@ class TestBuildingService(unittest.TestCase):
             office_repo=self.office_repo,
             slot_repo=self.slot_repo,
         )
+
+    def test_add_building(self):
+        """Test add_building calls repo with correct building data"""
+        self.building_repo.add_building.return_value = None
+        
+        req = AddBuildingRequestDTO(buildingName="HQ Building")
+        asyncio.run(self.service.add_building(req))
+        
+        self.building_repo.add_building.assert_awaited_once()
+        call_args = self.building_repo.add_building.call_args[0][0]
+        self.assertEqual(call_args.name, "HQ Building")
+        self.assertEqual(call_args.total_floors, 0)
+        self.assertEqual(call_args.available_slots, 0)
         
     def test_add_floor(self):
         cases = {
@@ -143,6 +156,31 @@ class TestBuildingService(unittest.TestCase):
                 "office_repo_setup": lambda: None,
                 "expected_exception": None,
             },
+            "floor_with_assigned_office": {
+                "building_repo_setup": lambda: setattr(
+                    self.building_repo.get_building_by_id,
+                    "return_value",
+                    Building(
+                        BuildingId="b1",
+                        BuildingName="HQ",
+                        TotalFloors=2,
+                        AvailableSlots=5,
+                    ),
+                ),
+                "floor_repo_setup": lambda: setattr(
+                    self.floor_repo.get_floors,
+                    "return_value",
+                    [
+                        Floor(building_id="b1", FloorNumber=1, TotalSlots=5, AvailableSlots=3, OfficeId="office_1")
+                    ],
+                ),
+                "office_repo_setup": lambda: setattr(
+                    self.office_repo.get_office_by_id,
+                    "return_value",
+                    Office(OfficeName="Engineering", BuildingId="b1", FloorNumber=1, OfficeId="office_1"),
+                ),
+                "expected_exception": None,
+            },
             "building_not_found": {
                 "building_repo_setup": lambda: setattr(
                     self.building_repo.get_building_by_id,
@@ -176,7 +214,10 @@ class TestBuildingService(unittest.TestCase):
                     self.assertEqual(floor_response.floor_number, 1)
                     self.assertEqual(floor_response.total_slots, 5)
                     self.assertEqual(floor_response.available_slots, 3)
-                    self.assertIsNone(floor_response.assigned_office)
+                    if case_name == "floor_with_assigned_office":
+                        self.assertEqual(floor_response.assigned_office, "Engineering")
+                    else:
+                        self.assertIsNone(floor_response.assigned_office)
     
     def test_get_slots(self):
         cases = {
@@ -210,6 +251,46 @@ class TestBuildingService(unittest.TestCase):
                             IsAssigned=False,
                             IsOccupied=False,
                             OccupiedBy=None,
+                        )
+                    ],
+                ),
+                "expected_exception": None,
+            },
+            "slot_with_occupant": {
+                "building_repo_setup": lambda: setattr(
+                    self.building_repo.get_building_by_id,
+                    "return_value",
+                    Building(
+                        BuildingId="b1",
+                        BuildingName="HQ",
+                        TotalFloors=2,
+                        AvailableSlots=5,
+                    ),
+                ),
+                "floor_repo_setup": lambda: setattr(
+                    self.floor_repo.get_floors,
+                    "return_value",
+                    [
+                        Floor(building_id="b1", FloorNumber=1)
+                    ],
+                ),
+                "slot_repo_setup": lambda: setattr(
+                    self.slot_repo.get_slots_by_floor,
+                    "return_value",
+                    [
+                        Slot(
+                            building_id="b1",
+                            floor_number=1,
+                            SlotId=1,
+                            SlotType=SlotType.FOUR_WHEELER,
+                            IsAssigned=True,
+                            IsOccupied=True,
+                            OccupiedBy=OccupantDetails(
+                                NumberPlate="ABC123",
+                                StartTime=1640000000,
+                                Username="John Doe",
+                                Email="john@example.com",
+                            ),
                         )
                     ],
                 ),
@@ -269,6 +350,32 @@ class TestBuildingService(unittest.TestCase):
                     self.assertEqual(slot_response.floor_number, 1)
                     self.assertEqual(slot_response.slot_number, 1)
                     self.assertEqual(slot_response.slot_type, SlotType.FOUR_WHEELER.value)
-                    self.assertFalse(slot_response.is_assigned)
-                    self.assertIsNone(slot_response.parking_status)
+                    if case_name == "slot_with_occupant":
+                        self.assertTrue(slot_response.is_assigned)
+                        self.assertTrue(slot_response.is_occupied)
+                        self.assertIsNotNone(slot_response.parking_status)
+                        self.assertEqual(slot_response.parking_status.number_plate, "ABC123")
+                    else:
+                        self.assertFalse(slot_response.is_assigned)
+                        self.assertIsNone(slot_response.parking_status)
     
+    def test_get_slots_nonexistent_floor(self):
+        """Test get_slots with a floor number that doesn't exist in building"""
+        self.building_repo.get_building_by_id.return_value = Building(
+            BuildingId="b1",
+            BuildingName="Tower",
+            TotalFloors=3,
+            AvailableSlots=50
+        )
+        
+        # Building has floors 1, 2 but we request floor 5
+        self.floor_repo.get_floors.return_value = [
+            Floor(building_id="b1", FloorNumber=1),
+            Floor(building_id="b1", FloorNumber=2)
+        ]
+        
+        with self.assertRaises(WebException) as ctx:
+            asyncio.run(self.service.get_slots("b1", 5))
+        
+        self.assertEqual(ctx.exception.status_code, 404)
+        self.assertIn("Floor not found", ctx.exception.message)
