@@ -129,4 +129,5 @@ class BuildingService:
                 )
             )
 
+        slot_responses.sort(key=lambda x: x.slot_number)
         return slot_responses
