@@ -10,8 +10,17 @@ from app.dto.login import UserJWT
 from app.models.roles import Roles
 from app.errors.web_exception import WebException, UNAUTHORIZED_ERROR
 
+TEST_JWT_SECRET = "test-secret"
+
 
 class TestDependencies(unittest.TestCase):
+    def setUp(self):
+        self.get_jwt_secret_patcher = patch(
+            "app.dependencies.get_jwt_secret", return_value=TEST_JWT_SECRET
+        )
+        self.get_jwt_secret_patcher.start()
+        self.addCleanup(self.get_jwt_secret_patcher.stop)
+
     def test_get_db(self):
         """Test get_db returns db from app state"""
         mock_db = Mock()
@@ -33,7 +42,7 @@ class TestDependencies(unittest.TestCase):
             "iat": int(time.time()),
         }
         
-        token = jwt.encode(token_payload, "asdfasasdfasdf", algorithm="HS256")
+        token = jwt.encode(token_payload, TEST_JWT_SECRET, algorithm="HS256")
         mock_token = Mock(spec=HTTPAuthorizationCredentials)
         mock_token.credentials = token
 
@@ -57,7 +66,7 @@ class TestDependencies(unittest.TestCase):
             "iat": int(time.time()),
         }
         
-        token = jwt.encode(token_payload, "asdfasasdfasdf", algorithm="HS256")
+        token = jwt.encode(token_payload, TEST_JWT_SECRET, algorithm="HS256")
         mock_token = Mock(spec=HTTPAuthorizationCredentials)
         mock_token.credentials = token
 
@@ -81,7 +90,7 @@ class TestDependencies(unittest.TestCase):
             "iat": int(time.time()),
         }
         
-        token = jwt.encode(token_payload, "asdfasasdfasdf", algorithm="HS256")
+        token = jwt.encode(token_payload, TEST_JWT_SECRET, algorithm="HS256")
         mock_token = Mock(spec=HTTPAuthorizationCredentials)
         mock_token.credentials = token
 
@@ -119,7 +128,7 @@ class TestDependencies(unittest.TestCase):
             "iat": int(time.time()),
         }
         
-        token = jwt.encode(token_payload, "asdfasasdfasdf", algorithm="HS256")
+        token = jwt.encode(token_payload, TEST_JWT_SECRET, algorithm="HS256")
         mock_token = Mock(spec=HTTPAuthorizationCredentials)
         mock_token.credentials = token
 

@@ -1,14 +1,16 @@
 import time
 import jwt
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
-from app.constants import JWT_ALGORITHM, JWT_SECRET
+from app.constants import JWT_ALGORITHM
 from app.main import app
 from app.models.roles import Roles
 from app.services.building import BuildingService
 from app.services.office import OfficeService
+
+TEST_JWT_SECRET = "test-secret"
 
 
 class TestBuildingRouter(unittest.TestCase):
@@ -19,6 +21,11 @@ class TestBuildingRouter(unittest.TestCase):
         self.office_service_mock = AsyncMock(spec=OfficeService)
         app.dependency_overrides[BuildingService] = lambda: self.building_service_mock
         app.dependency_overrides[OfficeService] = lambda: self.office_service_mock
+        self.get_jwt_secret_patcher = patch(
+            "app.dependencies.get_jwt_secret", return_value=TEST_JWT_SECRET
+        )
+        self.get_jwt_secret_patcher.start()
+        self.addCleanup(self.get_jwt_secret_patcher.stop)
 
     def tearDown(self):
         app.dependency_overrides.clear()
@@ -35,7 +42,7 @@ class TestBuildingRouter(unittest.TestCase):
                 "exp": now + 3600,
                 "iat": now,
             },
-            JWT_SECRET,
+            TEST_JWT_SECRET,
             algorithm=JWT_ALGORITHM,
         )
         return {"Authorization": f"Bearer {token}"}

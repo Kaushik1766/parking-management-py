@@ -1,3 +1,9 @@
+from app.utils.secrets_utils import get_jwt_secret
+import json
+from botocore.exceptions import ClientError
+from app.constants import SECRET_NAME
+from app.constants import REGION_NAME
+import boto3
 from app.constants import JWT_ALGORITHM
 import uuid
 import datetime
@@ -7,7 +13,6 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from app.constants import JWT_SECRET
 from app.dto.register import RegisterDTO
 from app.errors.web_exception import UNAUTHORIZED_ERROR, WebException
 from app.models.roles import Roles
@@ -37,7 +42,7 @@ class AuthService:
                 "exp": datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=1),
                 "iat": datetime.datetime.now(tz=datetime.timezone.utc),
             },
-            JWT_SECRET,
+            get_jwt_secret(),
             algorithm=JWT_ALGORITHM,
         )
         return token

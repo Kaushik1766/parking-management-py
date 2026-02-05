@@ -1,9 +1,8 @@
 from app.constants import JWT_ALGORITHM
-from app.constants import JWT_SECRET
 import asyncio
 import datetime
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import bcrypt
 import jwt
@@ -16,11 +15,18 @@ from app.models.user import User
 from app.repository.user_repo import UserRepository
 from app.services.auth import AuthService
 
+TEST_JWT_SECRET = "test-secret"
+
 
 class TestAuthService(unittest.TestCase):
     def setUp(self):
         self.mock_user_repo = AsyncMock(UserRepository)
         self.auth_service = AuthService(repo=self.mock_user_repo)
+        self.get_jwt_secret_patcher = patch(
+            "app.services.auth.get_jwt_secret", return_value=TEST_JWT_SECRET
+        )
+        self.get_jwt_secret_patcher.start()
+        self.addCleanup(self.get_jwt_secret_patcher.stop)
 
     def testLogin(self):
         valid_user = User(
@@ -64,7 +70,9 @@ class TestAuthService(unittest.TestCase):
                 else:
                     token = asyncio.run(self.auth_service.login(case["input"]))
                     self.assertIsNotNone(token)
-                    payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                    payload = jwt.decode(
+                        token, TEST_JWT_SECRET, algorithms=[JWT_ALGORITHM]
+                    )
                     jwt_user = UserJWT(**payload)
                     
                     self.assertEqual(jwt_user.email, valid_user.email)

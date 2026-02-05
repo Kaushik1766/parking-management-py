@@ -1,14 +1,16 @@
 import time
 import jwt
 import unittest
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 from fastapi.testclient import TestClient
 
-from app.constants import BILL_NOT_GENERATED_MESSAGE, JWT_ALGORITHM, JWT_SECRET
+from app.constants import BILL_NOT_GENERATED_MESSAGE, JWT_ALGORITHM
 from app.errors.web_exception import DB_ERROR, WebException
 from app.main import app
 from app.models.roles import Roles
 from app.services.billing import BillingService
+
+TEST_JWT_SECRET = "test-secret"
 
 
 class TestBillingRouter(unittest.TestCase):
@@ -17,6 +19,11 @@ class TestBillingRouter(unittest.TestCase):
         self.client = TestClient(app)
         self.billing_service_mock = AsyncMock(spec=BillingService)
         app.dependency_overrides[BillingService] = lambda: self.billing_service_mock
+        self.get_jwt_secret_patcher = patch(
+            "app.dependencies.get_jwt_secret", return_value=TEST_JWT_SECRET
+        )
+        self.get_jwt_secret_patcher.start()
+        self.addCleanup(self.get_jwt_secret_patcher.stop)
 
     def tearDown(self):
         app.dependency_overrides.clear()
@@ -33,7 +40,7 @@ class TestBillingRouter(unittest.TestCase):
                 "exp": now + 3600,
                 "iat": now,
             },
-            JWT_SECRET,
+            TEST_JWT_SECRET,
             algorithm=JWT_ALGORITHM,
         )
         return {"Authorization": f"Bearer {token}"}

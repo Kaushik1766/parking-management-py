@@ -1,3 +1,8 @@
+from app.utils.secrets_utils import get_jwt_secret
+import json
+from botocore.exceptions import ClientError
+from app.constants import SECRET_NAME
+from app.constants import REGION_NAME
 from app.models.roles import Roles
 import jwt
 from contextlib import asynccontextmanager
@@ -39,11 +44,12 @@ def get_user(allowed_roles: list[Roles]):
     def get_auth_user(
         token: Annotated[HTTPAuthorizationCredentials, Depends(bearer_security)],
     ):
+
         try:
             decoded_token = jwt.decode(
                 jwt=token.credentials,
                 verify=True,
-                key="asdfasasdfasdf",
+                key=get_jwt_secret(),
                 algorithms=["HS256"],
             )
             user = UserJWT(**decoded_token)
