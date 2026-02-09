@@ -23,6 +23,7 @@ class VehicleRepository:
                 KeyConditionExpression=Key("PK").eq(f"USER#{user_id}")
                 & Key("SK").begins_with("VEHICLE#"),
                 ProjectionExpression="VehicleId, Numberplate, VehicleType, IsParked, AssignedSlot",
+                ConsistentRead=True,
             ).get("Items")
         )
 
@@ -40,6 +41,7 @@ class VehicleRepository:
             lambda: self.table.get_item(
                 Key={"PK": f"USER#{user_id}", "SK": f"VEHICLE#{number_plate}"},
                 ProjectionExpression="VehicleId, Numberplate, VehicleType, IsParked, AssignedSlot",
+                ConsistentRead=True,
             ).get("Item")
         )
 

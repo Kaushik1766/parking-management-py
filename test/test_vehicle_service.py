@@ -104,6 +104,41 @@ class TestVehicleService(unittest.TestCase):
         self.assertEqual(saved_vehicle.assigned_slot.floor_number, 1)
         self.assertEqual(saved_vehicle.assigned_slot.slot_id, 7)
 
+    def test_add_vehicle_skips_mismatched_slot_type(self):
+        self.vehicle_repo.get_vehicles_by_user_id.return_value = []
+        self.office_repo.get_office_by_id.return_value = Office(
+            OfficeName="Ops", BuildingId="b1", FloorNumber=1, OfficeId="office_1"
+        )
+        two_wheeler_slot = Slot(
+            building_id="b1",
+            floor_number=1,
+            SlotId=10,
+            SlotType=SlotType.TWO_WHEELER,
+            IsAssigned=False,
+            IsOccupied=False,
+            OccupiedBy=None,
+        )
+        four_wheeler_slot = Slot(
+            building_id="b1",
+            floor_number=1,
+            SlotId=11,
+            SlotType=SlotType.FOUR_WHEELER,
+            IsAssigned=False,
+            IsOccupied=False,
+            OccupiedBy=None,
+        )
+        self.slot_repo.get_free_slots_by_floor.return_value = [two_wheeler_slot, four_wheeler_slot]
+
+        asyncio.run(
+            self.service.add_vehicle(AddVehicleRequestDTO(numberplate="FW123", type=1), user_id="user_1", office_id="office_1")
+        )
+
+        # Should pick slot 11 (four wheeler) not 10 (two wheeler)
+        saved_vehicle = self.vehicle_repo.save_vehicle.await_args.args[0]
+        self.assertEqual(saved_vehicle.assigned_slot.slot_id, 11)
+        updated_slot = self.slot_repo.update_slot.await_args.args[0]
+        self.assertEqual(updated_slot.slot_id, 11)
+
     def test_add_vehicle_raises_when_no_free_slots(self):
         self.vehicle_repo.get_vehicles_by_user_id.return_value = []
         self.office_repo.get_office_by_id.return_value = Office(
@@ -124,7 +159,13 @@ class TestVehicleService(unittest.TestCase):
 
     def test_add_vehicle_reuses_existing_assignment(self):
         existing_slot = AssignedSlot(BuildingId="b1", FloorNumber=1, SlotId=3)
-        registered_vehicle = SimpleNamespace(vehicle_type=0, assigned_slot=existing_slot)
+        registered_vehicle = Vehicle(
+            VehicleId="v1",
+            Numberplate="ABC123",
+            VehicleType=VehicleType.TWO_WHEELER,
+            IsParked=False,
+            AssignedSlot=existing_slot,
+        )
         self.vehicle_repo.get_vehicles_by_user_id.return_value = [registered_vehicle]
 
         asyncio.run(
@@ -155,7 +196,37 @@ class TestVehicleService(unittest.TestCase):
             AssignedSlot=None,
         )
         self.vehicle_repo.get_vehicle_by_number_plate.return_value = vehicle
+        self.vehicle_repo.get_vehicles_by_user_id.return_value = [vehicle]
 
         asyncio.run(self.service.delete_vehicle("ABC123", "user_1"))
 
         self.vehicle_repo.delete_vehicle.assert_awaited_once_with("user_1", "ABC123")
+
+    def test_delete_vehicle_frees_slot_when_last_of_type(self):
+        assigned_slot = AssignedSlot(BuildingId="b1", FloorNumber=1, SlotId=10)
+        vehicle = Vehicle(
+            VehicleId="v1",
+            Numberplate="ABC123",
+            VehicleType=VehicleType.TWO_WHEELER,
+            IsParked=False,
+            AssignedSlot=assigned_slot,
+        )
+        slot = Slot(
+            building_id="b1",
+            floor_number=1,
+            SlotId=10,
+            SlotType=SlotType.TWO_WHEELER,
+            IsAssigned=True,
+            IsOccupied=False,
+            OccupiedBy=None,
+        )
+
+        self.vehicle_repo.get_vehicle_by_number_plate.return_value = vehicle
+        self.vehicle_repo.get_vehicles_by_user_id.return_value = [vehicle]
+        self.slot_repo.get_slots_by_floor.return_value = [slot]
+
+        asyncio.run(self.service.delete_vehicle("ABC123", "user_1"))
+
+        updated_slot = self.slot_repo.update_slot.await_args.args[0]
+        self.assertFalse(updated_slot.is_assigned)
+        self.assertIsNone(updated_slot.occupied_by)

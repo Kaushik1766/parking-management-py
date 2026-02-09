@@ -1,4 +1,5 @@
 from app.models.vehicle import AssignedSlot, VehicleType
+from app.models.slot import SlotType
 from uuid import uuid4
 from app.errors.web_exception import CONFLICT_ERROR, DB_ERROR
 from app.errors.web_exception import WebException
@@ -65,12 +66,16 @@ class VehicleService:
     async def add_vehicle(self, vehicle: AddVehicleRequestDTO, user_id:str, office_id:str):
         registered_vehicles = await self.vehicle_repo.get_vehicles_by_user_id(user_id)
 
-        similar_vehicles = [v for v in registered_vehicles if v.vehicle_type==vehicle.vehicle_type]
+        if any(v.number_plate == vehicle.number_plate for v in registered_vehicles):
+            raise WebException(error_code=CONFLICT_ERROR, message="Vehicle with the same number plate already exists", status_code=status.HTTP_409_CONFLICT)
+
+        requested_type = VehicleType.TWO_WHEELER if vehicle.vehicle_type == 0 else VehicleType.FOUR_WHEELER
+        similar_vehicles = [v for v in registered_vehicles if v.vehicle_type == requested_type]
 
         vehicle_model = Vehicle(
             VehicleId=str(uuid4()),
             Numberplate=vehicle.number_plate,
-            VehicleType= VehicleType.TWO_WHEELER if vehicle.vehicle_type == 0 else VehicleType.FOUR_WHEELER,
+            VehicleType=requested_type,
             IsParked=False,
         )
         if len(similar_vehicles) == 0:
@@ -82,6 +87,9 @@ class VehicleService:
                     FloorNumber=office.floor_number,
                 )
             )
+
+            requested_slot_type = SlotType.TWO_WHEELER if requested_type == VehicleType.TWO_WHEELER else SlotType.FOUR_WHEELER
+            free_slots = [s for s in free_slots if s.slot_type == requested_slot_type]
 
             if len(free_slots) == 0:
                 raise WebException(error_code=CONFLICT_ERROR, message="No free slots available, please contact the admin", status_code=status.HTTP_409_CONFLICT)
@@ -110,5 +118,22 @@ class VehicleService:
             
         if vehicle.is_parked:
             raise WebException(status_code=status.HTTP_409_CONFLICT, message="Cannot delete a parked vehicle", error_code=CONFLICT_ERROR)
+
+        registered_vehicles = await self.vehicle_repo.get_vehicles_by_user_id(user_id)
+        remaining_same_type = [v for v in registered_vehicles if v.vehicle_type == vehicle.vehicle_type and v.number_plate != number_plate]
+
+        if vehicle.assigned_slot and len(remaining_same_type) == 0:
+            slots = await self.slot_repo.get_slots_by_floor(
+                Floor(
+                    building_id=vehicle.assigned_slot.building_id,
+                    FloorNumber=vehicle.assigned_slot.floor_number,
+                )
+            )
+
+            target_slot = next((s for s in slots if s.slot_id == vehicle.assigned_slot.slot_id), None)
+            if target_slot:
+                target_slot.is_assigned = False
+                target_slot.occupied_by = None
+                await self.slot_repo.update_slot(target_slot)
 
         await self.vehicle_repo.delete_vehicle(user_id, number_plate)
