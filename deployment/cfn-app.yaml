@@ -253,6 +253,38 @@ Resources:
         ScaleInCooldown: 300
         ScaleOutCooldown: 300
 
+  ParkingManagementWebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Scope: REGIONAL
+      Name: !Sub "${AWS::StackName}-waf"
+      Description: Rate-limit to 50 requests per second (15000 per 5 minutes)
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub "${AWS::StackName}-waf"
+        SampledRequestsEnabled: true
+      Rules:
+        - Name: !Sub "${AWS::StackName}-rate-limit"
+          Priority: 1
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              Limit: 15000
+              AggregateKeyType: IP
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub "${AWS::StackName}-rate-limit"
+            SampledRequestsEnabled: true
+
+  ParkingManagementWebACLAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Ref ParkingManagementALB
+      WebACLArn: !GetAtt ParkingManagementWebACL.Arn
+
   ParkingManagementRecordSet:
     Type: AWS::Route53::RecordSet
     Properties:

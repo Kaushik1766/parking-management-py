@@ -65,8 +65,8 @@ class VehicleRepository:
             KeyConditionExpression=Key("PK").eq(f"USER#{user_id}")
             & Key("SK").begins_with("PARKING#"),
             ProjectionExpression="IsParked",
-            FilterExpression="attribute_not_exists(EndTime) and Numberplate = :np",
-            ExpressionAttributeValues={":np": number_plate},
+            FilterExpression="(attribute_not_exists(EndTime) or EndTime = :nl) and Numberplate = :np",
+            ExpressionAttributeValues={":np": number_plate, ":nl": None},
         ).get("Items")
 
         if len(is_parked) > 0:

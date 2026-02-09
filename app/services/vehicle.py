@@ -103,8 +103,12 @@ class VehicleService:
 
     async def delete_vehicle(self, number_plate: str, user_id: str):
         vehicle = await self.vehicle_repo.get_vehicle_by_number_plate(user_id, number_plate)
+        print(vehicle)
 
         if vehicle is None:
             raise WebException(status_code=status.HTTP_404_NOT_FOUND, message="Vehicle not found", error_code=DB_ERROR)
+            
+        if vehicle.is_parked:
+            raise WebException(status_code=status.HTTP_409_CONFLICT, message="Cannot delete a parked vehicle", error_code=CONFLICT_ERROR)
 
         await self.vehicle_repo.delete_vehicle(user_id, number_plate)

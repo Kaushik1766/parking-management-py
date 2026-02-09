@@ -24,6 +24,10 @@ Parameters:
     Type: String
     Description: "ARN of the ACM certificate for the ALB"
     Default: arn:aws:acm:ap-south-1:513758042129:certificate/1efd4492-31b3-48af-b04d-ba5c731543fd
+  ApiStageName:
+    Type: String
+    Description: "Stage name for API Gateway deployment"
+    Default: prod
 
 Resources:
   ParkingManagementLogGroup:
@@ -37,7 +41,7 @@ Resources:
     Properties:
       NetworkMode: awsvpc
       ContainerDefinitions:
-        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.5
+        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.8
           Name: parking-management-image
           Essential: true
           PortMappings:
@@ -170,12 +174,11 @@ Resources:
           ContainerPort: 8000
           TargetGroupArn: !Ref ParkingManagementTargetGroup
 
-  ParkingManagementNLB:
+  ParkingManagementALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: !Sub "${AWS::StackName}-nlb"
+      Name: !Sub "${AWS::StackName}-alb"
       Scheme: internet-facing
-      Type: network
       Subnets: !Ref Subnets
       SecurityGroups:
         - !Ref ParkingManagementALBSG
@@ -183,7 +186,6 @@ Resources:
   ParkingManagementTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub "${AWS::StackName}-tg"
       Port: 8000
       Protocol: HTTP
       HealthCheckEnabled: true
@@ -245,3 +247,65 @@ Resources:
         TargetValue: 50.0
         ScaleInCooldown: 300
         ScaleOutCooldown: 300
+
+  # API Gateway in front of the NLB to ensure proxy path is forwarded correctly
+  ParkingManagementApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${AWS::StackName}-api"
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  ParkingManagementApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - ParkingManagementApiMethodProxy
+      - ParkingManagementApiMethodRoot
+    Properties:
+      RestApiId: !Ref ParkingManagementApi
+      StageName: !Ref ApiStageName
+
+  ParkingManagementApiProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ParkingManagementApi.RootResourceId
+      PathPart: "{proxy+}"
+      RestApiId: !Ref ParkingManagementApi
+
+  ParkingManagementApiMethodProxy:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: ANY
+      ResourceId: !Ref ParkingManagementApiProxyResource
+      RestApiId: !Ref ParkingManagementApi
+      RequestParameters:
+        method.request.path.proxy: true
+      Integration:
+        IntegrationHttpMethod: ANY
+        Type: HTTP_PROXY
+        # Use HTTPS so API Gateway doesn't get redirected by the ALB's HTTP->HTTPS rule
+        Uri: !Sub "https://${ParkingManagementALB.DNSName}/{proxy}"
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestParameters:
+          integration.request.path.proxy: "method.request.path.proxy"
+
+  ParkingManagementApiMethodRoot:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: ANY
+      ResourceId: !GetAtt ParkingManagementApi.RootResourceId
+      RestApiId: !Ref ParkingManagementApi
+      Integration:
+        IntegrationHttpMethod: ANY
+        Type: HTTP_PROXY
+        # Use HTTPS so API Gateway doesn't get redirected by the ALB's HTTP->HTTPS rule
+        Uri: !Sub "https://${ParkingManagementALB.DNSName}"
+        PassthroughBehavior: WHEN_NO_MATCH
+
+Outputs:
+  ApiInvokeUrl:
+    Description: Invoke URL for the API Gateway stage
+    Value: !Sub "https://${ParkingManagementApi}.execute-api.${AWS::Region}.amazonaws.com/${ApiStageName}"
