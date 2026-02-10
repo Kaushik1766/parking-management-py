@@ -21,6 +21,7 @@ class TestBuildingService(unittest.TestCase):
         self.floor_repo = AsyncMock(FloorRepository)
         self.office_repo = AsyncMock(OfficeRepository)
         self.slot_repo = AsyncMock(SlotRepository)
+        self.building_repo.building_exists_with_name.return_value = False
         self.service = BuildingService(
             building_repo=self.building_repo,
             floor_repo=self.floor_repo,
@@ -35,11 +36,22 @@ class TestBuildingService(unittest.TestCase):
         req = AddBuildingRequestDTO(buildingName="HQ Building")
         asyncio.run(self.service.add_building(req))
         
+        self.building_repo.building_exists_with_name.assert_awaited_once_with("HQ Building")
         self.building_repo.add_building.assert_awaited_once()
         call_args = self.building_repo.add_building.call_args[0][0]
         self.assertEqual(call_args.name, "HQ Building")
         self.assertEqual(call_args.total_floors, 0)
         self.assertEqual(call_args.available_slots, 0)
+
+    def test_add_building_conflict(self):
+        self.building_repo.building_exists_with_name.return_value = True
+
+        req = AddBuildingRequestDTO(buildingName="HQ Building")
+        with self.assertRaises(WebException) as ctx:
+            asyncio.run(self.service.add_building(req))
+
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.building_repo.add_building.assert_not_awaited()
         
     def test_add_floor(self):
         cases = {
