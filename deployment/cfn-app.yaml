@@ -32,7 +32,10 @@ Parameters:
     Type: String
     Description: Desired url for backend
     Default: 1337park-alb.kaushiksaha.me
-
+  SecretsManagerSecretArn:
+    Type: String
+    Description: ARN of the Secrets Manager secret containing application credentials (e.g., JWT secret)
+    Default: arn:aws:secretsmanager:ap-south-1:513758042129:secret:parking-management-secret-rZCSrO
 Resources:
   ParkingManagementLogGroup:
     Type: AWS::Logs::LogGroup
@@ -104,6 +107,15 @@ Resources:
                 Resource:
                   - !Ref DynamoTableArn
                   - !Sub "${DynamoTableArn}/index/*"
+        - PolicyName: !Sub "${AWS::StackName}-secretsmanager-access"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource: !Ref SecretsManagerSecretArn
 
   ParkingManagementCluster:
     Type: AWS::ECS::Cluster
