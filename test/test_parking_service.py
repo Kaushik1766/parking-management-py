@@ -81,6 +81,28 @@ class TestParkingService(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertEqual(ctx.exception.error_code, CONFLICT_ERROR)
 
+    def test_park_raises_when_slot_occupied(self):
+        assigned_slot = AssignedSlot(BuildingId="b1", FloorNumber=2, SlotId=5)
+        vehicle = Vehicle(
+            VehicleId="v1",
+            Numberplate="ABC123",
+            VehicleType=VehicleType.TWO_WHEELER,
+            IsParked=False,
+            AssignedSlot=assigned_slot,
+        )
+        self.vehicle_repo.get_vehicle_by_number_plate.return_value = vehicle
+        self.parking_repo.add_parking.side_effect = WebException(
+            status_code=409,
+            message="Slot already occupied",
+            error_code=CONFLICT_ERROR,
+        )
+
+        with self.assertRaises(WebException) as ctx:
+            asyncio.run(self.service.park("user_1", "user@example.com", ParkRequestDTO(numberplate="ABC123")))
+
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(ctx.exception.error_code, CONFLICT_ERROR)
+
     def test_get_parkings_sorts_and_maps(self):
         records = [
             ParkingHistory(

@@ -194,6 +194,35 @@ class TestParkingRepository(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(building_response["Item"]["AvailableSlots"], 29)
 
+    async def test_add_parking_slot_already_occupied_raises_conflict(self):
+        # Mark slot as already occupied
+        self.table.update_item(
+            Key={
+                "PK": f"BUILDING#{self.building_id}",
+                "SK": f"FLOOR#{self.floor_number}#SLOT#{self.slot_id}",
+            },
+            UpdateExpression="SET IsOccupied = :occupied",
+            ExpressionAttributeValues={":occupied": True},
+        )
+
+        start_time = int(time.time())
+        parking = ParkingHistory(
+            user_id=self.user_id,
+            numberplate=self.numberplate,
+            building_id=self.building_id,
+            floor_number=self.floor_number,
+            slot_id=self.slot_id,
+            start_time=start_time,
+            parking_id="parking_conflict",
+            vehicle_type="TwoWheeler",
+        )
+
+        with self.assertRaises(WebException) as ctx:
+            await self.repo.add_parking(parking)
+
+        self.assertEqual(ctx.exception.status_code, status.HTTP_409_CONFLICT)
+        self.assertIn("occupied", ctx.exception.message)
+
     async def test_add_parking_user_not_found_raises_error(self):
         parking = ParkingHistory(
             user_id="nonexistent",

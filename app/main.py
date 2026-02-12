@@ -49,6 +49,7 @@ def exception_handler(request: Request, exc: ClientError):
             content={"message": "Transaction canceled due to conflict", "code": UNEXPECTED_ERROR},
         )
     else: 
+        print(exc)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"message": "Internal Server Error", "code": UNEXPECTED_ERROR},

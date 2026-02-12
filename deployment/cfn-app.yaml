@@ -32,7 +32,10 @@ Parameters:
     Type: String
     Description: Desired url for backend
     Default: 1337park-alb.kaushiksaha.me
-
+  SecretsManagerSecretArn:
+    Type: String
+    Description: ARN of the Secrets Manager secret containing application credentials (e.g., JWT secret)
+    Default: arn:aws:secretsmanager:ap-south-1:513758042129:secret:parking-management-secret-rZCSrO
 Resources:
   ParkingManagementLogGroup:
     Type: AWS::Logs::LogGroup
@@ -45,7 +48,7 @@ Resources:
     Properties:
       NetworkMode: awsvpc
       ContainerDefinitions:
-        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.8
+        - Image: 513758042129.dkr.ecr.ap-south-1.amazonaws.com/parking-management-py:1.0.9
           Name: parking-management-image
           Essential: true
           PortMappings:
@@ -104,6 +107,15 @@ Resources:
                 Resource:
                   - !Ref DynamoTableArn
                   - !Sub "${DynamoTableArn}/index/*"
+        - PolicyName: !Sub "${AWS::StackName}-secretsmanager-access"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource: !Ref SecretsManagerSecretArn
 
   ParkingManagementCluster:
     Type: AWS::ECS::Cluster
@@ -249,7 +261,7 @@ Resources:
         PredefinedMetricSpecification:
           PredefinedMetricType: ALBRequestCountPerTarget
           ResourceLabel: !Sub ${ParkingManagementALB.LoadBalancerFullName}/${ParkingManagementTargetGroup.TargetGroupFullName}
-        TargetValue: 50.0
+        TargetValue: 1000.0
         ScaleInCooldown: 300
         ScaleOutCooldown: 300
 
@@ -258,7 +270,7 @@ Resources:
     Properties:
       Scope: REGIONAL
       Name: !Sub "${AWS::StackName}-waf"
-      Description: Rate-limit to 50 requests per second (15000 per 5 minutes)
+      Description: Rate limit 50 rps 15000 per 5 minutes
       DefaultAction:
         Allow: {}
       VisibilityConfig:

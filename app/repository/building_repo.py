@@ -9,7 +9,7 @@ from app.constants import TABLE
 from app.errors.web_exception import WebException, DB_ERROR
 from app.models.building import Building
 from typing import cast
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 
 
 class BuildingRepository:
@@ -54,3 +54,27 @@ class BuildingRepository:
                 ConditionExpression="attribute_not_exists(PK) and attribute_not_exists(SK)",
             )
         )
+
+    async def building_exists_with_name(self, building_name: str) -> bool:
+        """Return True if a building with the given name already exists."""
+        last_evaluated_key = None
+
+        while True:
+            def _query():
+                params = {
+                    "KeyConditionExpression": Key("PK").eq("BUILDING") & Key("SK").begins_with("BUILDING#"),
+                    "FilterExpression": Attr("BuildingName").eq(building_name),
+                    "ProjectionExpression": "BuildingId",
+                }
+                if last_evaluated_key:
+                    params["ExclusiveStartKey"] = last_evaluated_key
+                return self.table.query(**params)
+
+            response = await to_thread(_query)
+            items = response.get("Items", [])
+            if items:
+                return True
+
+            last_evaluated_key = response.get("LastEvaluatedKey")
+            if not last_evaluated_key:
+                return False

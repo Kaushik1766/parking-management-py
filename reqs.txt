@@ -1,0 +1,17 @@
+Parking management requirements - 
+
+Customer -
+1. Signup with email password and office
+2. slot allotment on registering vehicles (if any slot is free)
+3. reuse slot if slot of required type is assigned to the user
+4. add/remove/park/unpark vehicles
+5. view parking history (only parkings that are over)
+6. view bills if generated
+7. get email notifications of generated bills
+
+Admin -
+1. Add building
+2. Add floors to a building
+3. Assign floor of a building to an office (this also creates an office entity)
+4. view slots (with availability)
+

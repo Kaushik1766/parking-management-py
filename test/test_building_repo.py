@@ -179,6 +179,27 @@ class TestBuildingRepository(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.total_slots, 200)
         self.assertEqual(result.available_slots, 150)
 
+    async def test_building_exists_with_name_true(self):
+        building_data = {
+            "PK": "BUILDING",
+            "SK": "BUILDING#bldg123",
+            "BuildingId": "bldg123",
+            "BuildingName": "Existing Building",
+            "TotalFloors": 1,
+            "TotalSlots": 10,
+            "AvailableSlots": 5,
+        }
+        self.table.put_item(Item=building_data)
+
+        exists = await self.repo.building_exists_with_name("Existing Building")
+
+        self.assertTrue(exists)
+
+    async def test_building_exists_with_name_false(self):
+        exists = await self.repo.building_exists_with_name("Nonexistent Building")
+
+        self.assertFalse(exists)
+
 
 if __name__ == "__main__":
     unittest.main()

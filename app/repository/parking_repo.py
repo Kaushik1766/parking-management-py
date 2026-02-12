@@ -7,7 +7,7 @@ from app.models.slot import OccupantDetails
 from mypy_boto3_dynamodb.type_defs import UpdateItemInputTableUpdateItemTypeDef
 from mypy_boto3_dynamodb.type_defs import UpdateTypeDef
 from mypy_boto3_dynamodb.type_defs import TransactWriteItemTypeDef
-from app.errors.web_exception import DB_ERROR
+from app.errors.web_exception import DB_ERROR, CONFLICT_ERROR
 from app.errors.web_exception import WebException
 from typing import cast
 import datetime
@@ -86,8 +86,9 @@ class ParkingRepository:
                         Email=user.email,
                         StartTime=parking.start_time,
                     ).model_dump(by_alias=True),
+                    ":not_occupied": False,
                 },
-                ConditionExpression="attribute_exists(PK) and attribute_exists(SK)",
+                ConditionExpression="attribute_exists(PK) and attribute_exists(SK) and IsOccupied = :not_occupied",
                 TableName=TABLE,
             )
         }
@@ -150,7 +151,11 @@ class ParkingRepository:
             )
         except self.table.meta.client.exceptions.TransactionCanceledException as e:
             print(e.response.get("CancellationReasons"))
-            raise WebException(status_code=status.HTTP_409_CONFLICT, message="Parking creation failed due to conflict", error_code=DB_ERROR) from e
+            raise WebException(
+                status_code=status.HTTP_409_CONFLICT,
+                message="Slot already occupied",
+                error_code=CONFLICT_ERROR,
+            ) from e
 
 
     async def unpark_by_numberplate(self, user_id: str, numberplate: str):

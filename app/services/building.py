@@ -15,7 +15,7 @@ from app.dto.building import (
     ParkingStatusResponseDTO,
     SlotResponseDTO,
 )
-from app.errors.web_exception import WebException, DB_ERROR
+from app.errors.web_exception import WebException, DB_ERROR, CONFLICT_ERROR
 from app.models.building import Building
 from app.repository.building_repo import BuildingRepository
 from app.repository.floor_repo import FloorRepository
@@ -37,6 +37,13 @@ class BuildingService:
         self.slot_repo = slot_repo
 
     async def add_building(self, req: AddBuildingRequestDTO):
+        if await self.building_repo.building_exists_with_name(req.building_name):
+            raise WebException(
+                status_code=status.HTTP_409_CONFLICT,
+                message="Building name already exists",
+                error_code=CONFLICT_ERROR,
+            )
+
         building = Building(
             BuildingId=str(uuid4()),
             BuildingName=req.building_name,
