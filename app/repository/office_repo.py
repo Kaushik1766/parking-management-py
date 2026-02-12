@@ -12,7 +12,7 @@ from mypy_boto3_dynamodb.service_resource import DynamoDBServiceResource
 
 from app.constants import TABLE
 from app.dependencies import get_db
-from app.errors.web_exception import WebException
+from app.errors.web_exception import DB_ERROR, WebException
 from app.models.office import Office
 
 class OfficeRepository:
@@ -72,6 +72,9 @@ class OfficeRepository:
                 }
             ).get("Item")
         )
+
+        if office_item is None:
+            raise WebException(status_code=status.HTTP_404_NOT_FOUND, message="Office not found", error_code=DB_ERROR)
 
         return Office(**cast(dict, office_item))
 

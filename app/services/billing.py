@@ -1,4 +1,3 @@
-from functools import lru_cache
 from typing import Annotated, Dict
 
 from fastapi import Depends
@@ -21,10 +20,15 @@ class BillingService:
     ):
         self.billing_repo = billing_repo
         self.building_repo = building_repo
+        self._building_name_cache: Dict[str, str] = {}
 
-    @lru_cache(maxsize=128)
     async def _get_building_name(self, building_id: str) -> str:
+        cached = self._building_name_cache.get(building_id)
+        if cached is not None:
+            return cached
+
         building = await self.building_repo.get_building_by_id(building_id)
+        self._building_name_cache[building_id] = building.name
         return building.name
 
     async def _bill_to_response(self, *, bill: Bill, user_email: str) -> BillResponseDTO:

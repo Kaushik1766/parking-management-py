@@ -18,12 +18,18 @@ from app.errors.web_exception import UNAUTHORIZED_ERROR, WebException
 from app.models.roles import Roles
 from app.models.user import User
 from app.repository.user_repo import UserRepository
+from app.repository.office_repo import OfficeRepository
 from app.dto.login import LoginDTO
 from app.utils.singleton import singleton
 
 class AuthService:
-    def __init__(self, repo: Annotated[UserRepository, Depends(UserRepository)]):
+    def __init__(
+        self,
+        repo: Annotated[UserRepository, Depends(UserRepository)],
+        office_repo: Annotated[OfficeRepository, Depends(OfficeRepository)],
+    ):
         self.repo = repo
+        self.office_repo = office_repo
 
     async def login(self, req: LoginDTO) -> str:
         user = await self.repo.get_by_email(req.email.lower())
@@ -48,9 +54,11 @@ class AuthService:
         return token
 
     async def register(self, req: RegisterDTO):
+        await self.office_repo.get_office_by_id(req.officeId)
+
         hashed_password = bcrypt.hashpw(req.password.encode("utf-8"), bcrypt.gensalt())
 
-        res = await self.repo.save_user(
+        await self.repo.save_user(
             User(
                 Username=req.name,
                 PasswordHash=hashed_password.decode("utf-8"),
